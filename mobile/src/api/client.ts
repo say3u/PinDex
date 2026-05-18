@@ -4,8 +4,8 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export const api = axios.create({ baseURL: API_URL });
 
-export const createGame = (bowlerId: string, lane?: number, league?: string) =>
-  api.post("/games/", { bowler_id: bowlerId, lane, league }).then((r) => r.data);
+export const createGame = (bowlerId: string, lane?: number, league?: string, oilPattern = "house", ballUsed?: string) =>
+  api.post("/games/", { bowler_id: bowlerId, lane, league, oil_pattern: oilPattern, ball_used: ballUsed }).then((r) => r.data);
 
 export const logFrame = (payload: {
   game_id: string;
@@ -13,6 +13,12 @@ export const logFrame = (payload: {
   ball1_pins: number;
   ball2_pins?: number;
   ball3_pins?: number;
+  ball1_speed?: number;
+  ball1_arrow?: number;
+  ball1_hook?: number;
+  hand_style?: string;
+  ball2_speed?: number;
+  ball2_arrow?: number;
 }) => api.post("/frames/", payload).then((r) => r.data);
 
 export const getSummary = (bowlerId: string) =>

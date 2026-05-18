@@ -7,6 +7,7 @@ import {
   Alert,
   ScrollView,
   ActivityIndicator,
+  TextInput,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import PinDeck from "../components/PinDeck";
@@ -30,10 +31,11 @@ interface Frame {
 interface Props {
   gameId: string;
   bowlerId: string;
+  handStyle: string;
   onFinish: () => void;
 }
 
-export default function GameScreen({ gameId, bowlerId, onFinish }: Props) {
+export default function GameScreen({ gameId, bowlerId, handStyle, onFinish }: Props) {
   const insets = useSafeAreaInsets();
   const [currentFrame, setCurrentFrame] = useState(1);
   const [ball, setBall] = useState<1 | 2 | 3>(1);
@@ -42,6 +44,10 @@ export default function GameScreen({ gameId, bowlerId, onFinish }: Props) {
   const [ball3Knocked, setBall3Knocked] = useState<Set<number>>(new Set());
   const [frames, setFrames] = useState<Frame[]>([]);
   const [loading, setLoading] = useState(false);
+  // Shot detail fields
+  const [speed, setSpeed] = useState("");
+  const [arrow, setArrow] = useState("");
+  const [hook, setHook] = useState(5);
 
   const ball2Strike = currentFrame === 10 && ball2Knocked.size === 10;
 
@@ -128,6 +134,10 @@ export default function GameScreen({ gameId, bowlerId, onFinish }: Props) {
         ball1_pins: toBitmask(b1),
         ball2_pins: b2 !== undefined ? toBitmask(b2) : undefined,
         ball3_pins: b3 !== undefined ? toBitmask(b3) : undefined,
+        ball1_speed: speed ? parseFloat(speed) : undefined,
+        ball1_arrow: arrow ? parseInt(arrow) : undefined,
+        ball1_hook: hook,
+        hand_style: handStyle,
       });
       setFrames((prev) => [
         ...prev,
@@ -145,6 +155,9 @@ export default function GameScreen({ gameId, bowlerId, onFinish }: Props) {
     setBall(1);
     setBall1Knocked(new Set());
     setBall2Knocked(new Set());
+    setSpeed("");
+    setArrow("");
+    setHook(5);
   }
 
   function frameLabel(f: Frame) {
@@ -183,6 +196,48 @@ export default function GameScreen({ gameId, bowlerId, onFinish }: Props) {
           : ball === 2 ? "Tap additional pins knocked on ball 2"
           : "Tap pins knocked on ball 3"}
       </Text>
+
+      {/* Shot details — only on ball 1 */}
+      {ball === 1 && (
+        <View style={styles.shotDetails}>
+          <View style={styles.shotRow}>
+            <View style={styles.shotField}>
+              <Text style={styles.shotLabel}>Speed (mph)</Text>
+              <TextInput
+                style={styles.shotInput}
+                placeholder="17.5"
+                keyboardType="decimal-pad"
+                value={speed}
+                onChangeText={setSpeed}
+                placeholderTextColor="#9ca3af"
+              />
+            </View>
+            <View style={styles.shotField}>
+              <Text style={styles.shotLabel}>Arrow (1-7)</Text>
+              <TextInput
+                style={styles.shotInput}
+                placeholder="3"
+                keyboardType="number-pad"
+                value={arrow}
+                onChangeText={setArrow}
+                placeholderTextColor="#9ca3af"
+              />
+            </View>
+          </View>
+          <View>
+            <Text style={styles.shotLabel}>Hook Amount: {hook}/10</Text>
+            <View style={styles.hookRow}>
+              {[1,2,3,4,5,6,7,8,9,10].map((v) => (
+                <TouchableOpacity
+                  key={v}
+                  onPress={() => setHook(v)}
+                  style={[styles.hookDot, hook >= v && styles.hookDotActive]}
+                />
+              ))}
+            </View>
+          </View>
+        </View>
+      )}
 
       <TouchableOpacity
         style={[styles.btn, loading && styles.btnDisabled]}
@@ -229,4 +284,12 @@ const styles = StyleSheet.create({
   },
   btnDisabled: { opacity: 0.5 },
   btnText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  shotDetails: { width: "100%", gap: 12, backgroundColor: "#fff", borderRadius: 14, padding: 16, borderWidth: 1, borderColor: "#e5e7eb" },
+  shotRow: { flexDirection: "row", gap: 12 },
+  shotField: { flex: 1, gap: 4 },
+  shotLabel: { fontSize: 12, fontWeight: "600", color: "#6b7280", textTransform: "uppercase" },
+  shotInput: { backgroundColor: "#f9fafb", borderRadius: 8, padding: 10, fontSize: 16, borderWidth: 1, borderColor: "#e5e7eb", color: "#111827" },
+  hookRow: { flexDirection: "row", gap: 6, marginTop: 6 },
+  hookDot: { width: 24, height: 24, borderRadius: 12, backgroundColor: "#e5e7eb" },
+  hookDotActive: { backgroundColor: "#1e3a8a" },
 });

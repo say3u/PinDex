@@ -9,6 +9,9 @@ class GameCreate(BaseModel):
     bowler_id: str
     lane: int | None = None
     league: str | None = None
+    oil_pattern: str = "house"
+    ball_used: str | None = None
+    notes: str | None = None
 
 
 @router.post("/")
@@ -18,6 +21,9 @@ def create_game(body: GameCreate):
         "bowler_id": body.bowler_id,
         "lane": body.lane,
         "league": body.league,
+        "oil_pattern": body.oil_pattern,
+        "ball_used": body.ball_used,
+        "notes": body.notes,
     }).execute()
     return result.data[0]
 

@@ -8,8 +8,9 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { createGame, getSummary } from "../api/client";
+import { getSummary } from "../api/client";
 import GameScreen from "./GameScreen";
+import GameSetupScreen from "./GameSetupScreen";
 
 // Hardcoded for MVP — replace with auth later
 const BOWLER_ID = "00000000-0000-0000-0000-000000000001";
@@ -17,6 +18,8 @@ const BOWLER_ID = "00000000-0000-0000-0000-000000000001";
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const [activeGame, setActiveGame] = useState<string | null>(null);
+  const [showSetup, setShowSetup] = useState(false);
+  const [handStyle, setHandStyle] = useState("1hand");
   const [summary, setSummary] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
@@ -33,16 +36,10 @@ export default function HomeScreen() {
     }
   }
 
-  async function startGame() {
-    setLoading(true);
-    try {
-      const game = await createGame(BOWLER_ID);
-      setActiveGame(game.id);
-    } catch {
-      Alert.alert("Error", "Could not start game. Is the backend running?");
-    } finally {
-      setLoading(false);
-    }
+  function handleStart(gameId: string, style: string) {
+    setHandStyle(style);
+    setActiveGame(gameId);
+    setShowSetup(false);
   }
 
   function handleFinish() {
@@ -50,9 +47,19 @@ export default function HomeScreen() {
     loadSummary();
   }
 
+  if (showSetup) {
+    return (
+      <GameSetupScreen
+        bowlerId={BOWLER_ID}
+        onStart={handleStart}
+        onCancel={() => setShowSetup(false)}
+      />
+    );
+  }
+
   if (activeGame) {
     return (
-      <GameScreen gameId={activeGame} bowlerId={BOWLER_ID} onFinish={handleFinish} />
+      <GameScreen gameId={activeGame} bowlerId={BOWLER_ID} handStyle={handStyle} onFinish={handleFinish} />
     );
   }
 
@@ -75,15 +82,10 @@ export default function HomeScreen() {
       )}
 
       <TouchableOpacity
-        style={[styles.btn, loading && styles.btnDisabled]}
-        onPress={startGame}
-        disabled={loading}
+        style={styles.btn}
+        onPress={() => setShowSetup(true)}
       >
-        {loading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.btnText}>Start New Game</Text>
-        )}
+        <Text style={styles.btnText}>Start New Game</Text>
       </TouchableOpacity>
     </View>
   );

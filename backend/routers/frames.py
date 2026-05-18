@@ -10,10 +10,16 @@ router = APIRouter()
 
 class FrameCreate(BaseModel):
     game_id: str
-    frame_number: int          # 1-10
-    ball1_pins: int            # bitmask of pins knocked on ball 1 (0-1023)
+    frame_number: int
+    ball1_pins: int
     ball2_pins: int | None = None
-    ball3_pins: int | None = None  # 10th frame only
+    ball3_pins: int | None = None
+    ball1_speed: float | None = None
+    ball1_arrow: int | None = None   # 1-7
+    ball1_hook: int | None = None    # 0-10
+    hand_style: str | None = None    # '1hand' | '2hand' | 'cranker'
+    ball2_speed: float | None = None
+    ball2_arrow: int | None = None
 
     @field_validator("frame_number")
     @classmethod
@@ -62,6 +68,12 @@ def log_frame(body: FrameCreate):
         "is_strike": strike,
         "is_spare": spare,
         "leave_bitmask": leave,
+        "ball1_speed": body.ball1_speed,
+        "ball1_arrow": body.ball1_arrow,
+        "ball1_hook": body.ball1_hook,
+        "hand_style": body.hand_style,
+        "ball2_speed": body.ball2_speed,
+        "ball2_arrow": body.ball2_arrow,
     }).execute()
 
     return result.data[0]
