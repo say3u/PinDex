@@ -7,6 +7,7 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { createGame, getSummary } from "../api/client";
 import GameScreen from "./GameScreen";
 
@@ -14,6 +15,7 @@ import GameScreen from "./GameScreen";
 const BOWLER_ID = "00000000-0000-0000-0000-000000000001";
 
 export default function HomeScreen() {
+  const insets = useSafeAreaInsets();
   const [activeGame, setActiveGame] = useState<string | null>(null);
   const [summary, setSummary] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -55,7 +57,7 @@ export default function HomeScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + 16 }]}>
       <Text style={styles.title}>PinDex</Text>
       <Text style={styles.sub}>Track every shot. Own your game.</Text>
 

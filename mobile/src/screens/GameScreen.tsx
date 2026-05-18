@@ -8,6 +8,7 @@ import {
   ScrollView,
   ActivityIndicator,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import PinDeck from "../components/PinDeck";
 import { logFrame } from "../api/client";
 
@@ -33,21 +34,30 @@ interface Props {
 }
 
 export default function GameScreen({ gameId, bowlerId, onFinish }: Props) {
+  const insets = useSafeAreaInsets();
   const [currentFrame, setCurrentFrame] = useState(1);
   const [ball, setBall] = useState<1 | 2 | 3>(1);
   const [ball1Knocked, setBall1Knocked] = useState<Set<number>>(new Set());
   const [ball2Knocked, setBall2Knocked] = useState<Set<number>>(new Set());
+  const [ball3Knocked, setBall3Knocked] = useState<Set<number>>(new Set());
   const [frames, setFrames] = useState<Frame[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const currentKnocked = ball === 1 ? ball1Knocked : ball2Knocked;
-  const setCurrentKnocked = ball === 1 ? setBall1Knocked : setBall2Knocked;
+  const ball2Strike = currentFrame === 10 && ball2Knocked.size === 10;
 
-  // Pins available to knock depend on ball
+  // In 10th frame, ball 3 available pins:
+  // - if ball 2 was a strike, reset all 10 pins
+  // - otherwise only pins left standing after ball 2
   const availablePins =
-    ball === 1
-      ? ALL_PINS
-      : new Set([...ALL_PINS].filter((p) => !ball1Knocked.has(p)));
+    ball === 1 ? ALL_PINS
+    : ball === 2 ? new Set([...ALL_PINS].filter((p) => !ball1Knocked.has(p)))
+    : ball2Strike ? ALL_PINS
+    : new Set([...ALL_PINS].filter((p) => !ball2Knocked.has(p)));
+
+  const currentKnocked =
+    ball === 1 ? ball1Knocked : ball === 2 ? ball2Knocked : ball3Knocked;
+  const setCurrentKnocked =
+    ball === 1 ? setBall1Knocked : ball === 2 ? setBall2Knocked : setBall3Knocked;
 
   function togglePin(pin: number) {
     if (!availablePins.has(pin)) return;
@@ -59,57 +69,48 @@ export default function GameScreen({ gameId, bowlerId, onFinish }: Props) {
   }
 
   async function confirmBall() {
-    const isStrike = ball === 1 && ball1Knocked.size === 10;
-    const isSpare =
-      ball === 2 && ball1Knocked.size + ball2Knocked.size === 10;
+    const ball1Strike = ball1Knocked.size === 10;
+    const isSpare = ball === 2 && !ball1Strike &&
+      (ball1Knocked.size + ball2Knocked.size) === 10;
 
-    if (ball === 1 && (isStrike || currentFrame === 10)) {
-      if (isStrike && currentFrame < 10) {
+    // Frames 1-9
+    if (currentFrame < 10) {
+      if (ball === 1 && ball1Strike) {
         await submitFrame(ball1Knocked, undefined, undefined, true, false);
         advance();
         return;
       }
-    }
-
-    if (ball === 2) {
-      if (currentFrame < 10) {
+      if (ball === 2) {
         await submitFrame(ball1Knocked, ball2Knocked, undefined, false, isSpare);
         advance();
         return;
       }
+      setBall(2);
+      return;
     }
 
-    // 10th frame special handling
-    if (currentFrame === 10) {
-      if (ball === 1 && isStrike) {
-        setBall(2);
-        setBall2Knocked(new Set());
-        return;
-      }
-      if (ball === 2) {
-        const needsBall3 = isStrike || isSpare;
-        if (needsBall3) {
-          setBall(3);
-          return;
-        }
-        await submitFrame(ball1Knocked, ball2Knocked, undefined, false, isSpare);
-        onFinish();
-        return;
-      }
-      if (ball === 3) {
-        await submitFrame(
-          ball1Knocked,
-          ball2Knocked,
-          currentKnocked,
-          ball1Knocked.size === 10,
-          isSpare
-        );
-        onFinish();
-        return;
-      }
+    // 10th frame
+    if (ball === 1) {
+      setBall(2);
+      setBall2Knocked(new Set());
+      return;
     }
-
-    setBall(2);
+    if (ball === 2) {
+      const needsBall3 = ball1Strike || isSpare || ball2Knocked.size === 10;
+      if (needsBall3) {
+        setBall(3);
+        setBall3Knocked(new Set());
+        return;
+      }
+      await submitFrame(ball1Knocked, ball2Knocked, undefined, false, false);
+      onFinish();
+      return;
+    }
+    if (ball === 3) {
+      await submitFrame(ball1Knocked, ball2Knocked, ball3Knocked, ball1Strike, isSpare);
+      onFinish();
+      return;
+    }
   }
 
   async function submitFrame(
@@ -153,7 +154,7 @@ export default function GameScreen({ gameId, bowlerId, onFinish }: Props) {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView contentContainerStyle={[styles.container, { paddingTop: insets.top + 16 }]}>
       <Text style={styles.title}>Frame {currentFrame} — Ball {ball}</Text>
 
       {/* Scorecard */}
@@ -178,9 +179,9 @@ export default function GameScreen({ gameId, bowlerId, onFinish }: Props) {
       />
 
       <Text style={styles.hint}>
-        {ball === 1
-          ? "Tap pins you knocked down on ball 1"
-          : "Tap additional pins knocked on ball 2"}
+        {ball === 1 ? "Tap pins knocked on ball 1"
+          : ball === 2 ? "Tap additional pins knocked on ball 2"
+          : "Tap pins knocked on ball 3"}
       </Text>
 
       <TouchableOpacity
@@ -192,7 +193,7 @@ export default function GameScreen({ gameId, bowlerId, onFinish }: Props) {
           <ActivityIndicator color="#fff" />
         ) : (
           <Text style={styles.btnText}>
-            {ball === 1 && ball1Knocked.size === 10 ? "STRIKE!" : "Confirm"}
+            {currentKnocked.size === 10 ? "STRIKE!" : "Confirm"}
           </Text>
         )}
       </TouchableOpacity>
