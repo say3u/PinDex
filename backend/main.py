@@ -6,7 +6,7 @@ from routers import games, frames, stats
 
 load_dotenv()
 
-app = FastAPI(title="Pindex API", version="1.0.0")
+app = FastAPI(title="PinDex API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,

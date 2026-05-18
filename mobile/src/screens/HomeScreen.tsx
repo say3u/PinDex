@@ -56,7 +56,7 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Pindex</Text>
+      <Text style={styles.title}>PinDex</Text>
       <Text style={styles.sub}>Track every shot. Own your game.</Text>
 
       {summary && summary.total_frames > 0 && (

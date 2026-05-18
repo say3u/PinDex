@@ -1,4 +1,4 @@
-# Pindex
+# PinDex
 
 A real-time bowling performance tracker for league bowlers.
 
