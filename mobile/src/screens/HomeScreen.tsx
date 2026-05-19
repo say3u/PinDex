@@ -4,7 +4,7 @@ import {
   ScrollView, StatusBar,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-icons";
 import { getSummary } from "../api/client";
 import GameScreen from "./GameScreen";
 import GameSetupScreen from "./GameSetupScreen";
@@ -24,185 +24,200 @@ export default function HomeScreen() {
   useEffect(() => { loadSummary(); }, []);
 
   async function loadSummary() {
-    try {
-      const data = await getSummary(BOWLER_ID);
-      setSummary(data);
-    } catch { /* no data yet */ }
+    try { setSummary(await getSummary(BOWLER_ID)); } catch { /* no data yet */ }
   }
 
   function handleStart(gameId: string, style: string, oil: string) {
-    setHandStyle(style);
-    setOilPattern(oil);
-    setActiveGame(gameId);
-    setShowSetup(false);
-  }
-
-  function handleFinish() {
-    setActiveGame(null);
-    loadSummary();
+    setHandStyle(style); setOilPattern(oil);
+    setActiveGame(gameId); setShowSetup(false);
   }
 
   if (showBag) return <BallBagScreen onBack={() => setShowBag(false)} />;
-  if (showSetup) return (
-    <GameSetupScreen bowlerId={BOWLER_ID} onStart={handleStart} onCancel={() => setShowSetup(false)} />
-  );
-  if (activeGame) return (
-    <GameScreen gameId={activeGame} bowlerId={BOWLER_ID} handStyle={handStyle} oilPattern={oilPattern} onFinish={handleFinish} />
-  );
+  if (showSetup) return <GameSetupScreen bowlerId={BOWLER_ID} onStart={handleStart} onCancel={() => setShowSetup(false)} />;
+  if (activeGame) return <GameScreen gameId={activeGame} bowlerId={BOWLER_ID} handStyle={handStyle} oilPattern={oilPattern} onFinish={() => { setActiveGame(null); loadSummary(); }} />;
 
   const hasStats = summary && summary.total_frames > 0;
+  const strikeRate = hasStats ? summary.strike_rate : 0;
+  const spareRate = hasStats ? summary.spare_conversion_rate : 0;
 
   return (
-    <ScrollView
-      style={styles.root}
-      contentContainerStyle={[styles.container, { paddingTop: insets.top }]}
-      showsVerticalScrollIndicator={false}
-    >
-      <StatusBar barStyle="light-content" />
+    <View style={[styles.root, { paddingTop: insets.top }]}>
+      <StatusBar barStyle="light-content" backgroundColor="#0a0f1e" />
 
-      {/* Hero header */}
-      <View style={styles.hero}>
-        <Text style={styles.heroTitle}>PinDex</Text>
-        <Text style={styles.heroSub}>Track every shot. Own your game.</Text>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
 
-        {/* Start button inside hero */}
-        <TouchableOpacity style={styles.heroBtn} onPress={() => setShowSetup(true)}>
-          <Text style={styles.heroBtnText}>Start New Game</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Stats section */}
-      {hasStats ? (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Your Stats</Text>
-          <View style={styles.statsGrid}>
-            <StatCard
-              label="Strike Rate"
-              value={`${summary.strike_rate}%`}
-              icon={<MaterialCommunityIcons name="lightning-bolt" size={20} color="#1e3a8a" />}
-              color="#1e3a8a"
-              bg="#eff6ff"
-            />
-            <StatCard
-              label="Spare Conv."
-              value={`${summary.spare_conversion_rate}%`}
-              icon={<Ionicons name="checkmark-circle" size={20} color="#059669" />}
-              color="#059669"
-              bg="#f0fdf4"
-            />
+        {/* ── Logo ── */}
+        <View style={styles.logo}>
+          <View style={styles.logoIcon}>
+            <MaterialCommunityIcons name="bowling" size={22} color="#3b82f6" />
           </View>
-          {summary.top_leaves?.[0] && (
-            <View style={styles.leaveCard}>
-              <Ionicons name="pin" size={22} color="#f59e0b" />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.leaveTitle}>Most Common Leave</Text>
-                <Text style={styles.leaveValue}>{summary.top_leaves[0].label}</Text>
-              </View>
-              <Text style={styles.leaveCount}>{summary.top_leaves[0].count}×</Text>
-            </View>
-          )}
-          {summary.top_leaves?.length > 1 && (
-            <View style={styles.moreLeaves}>
-              {summary.top_leaves.slice(1, 4).map((l: any, i: number) => (
-                <View key={i} style={styles.leavePill}>
-                  <Text style={styles.leavePillText}>{l.label} ({l.count}×)</Text>
-                </View>
-              ))}
-            </View>
-          )}
+          <Text style={styles.logoText}>PinDex</Text>
         </View>
-      ) : (
-        <View style={styles.emptyState}>
-          <MaterialCommunityIcons name="bowling" size={48} color="#cbd5e1" />
-          <Text style={styles.emptyText}>No games yet. Start one to track your stats.</Text>
-        </View>
-      )}
 
-      {/* Ball bag button */}
-      <TouchableOpacity style={styles.bagBtn} onPress={() => setShowBag(true)}>
-        <MaterialCommunityIcons name="bowling-ball" size={24} color="#1e3a8a" />
-        <Text style={styles.bagBtnText}>My Ball Bag</Text>
-        <Ionicons name="chevron-forward" size={20} color="#cbd5e1" />
-      </TouchableOpacity>
-    </ScrollView>
+        {/* ── Hero CTA ── */}
+        <View style={styles.heroBlock}>
+          <Text style={styles.heroLabel}>READY TO BOWL?</Text>
+          <TouchableOpacity style={styles.ctaBtn} onPress={() => setShowSetup(true)} activeOpacity={0.85}>
+            <Ionicons name="play" size={20} color="#fff" />
+            <Text style={styles.ctaBtnText}>Start New Game</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ── Stats ── */}
+        {hasStats ? (
+          <>
+            <Text style={styles.sectionLabel}>THIS SEASON</Text>
+
+            {/* Big stat row */}
+            <View style={styles.statRow}>
+              <BigStat
+                value={`${strikeRate}%`}
+                label="Strike Rate"
+                color="#f59e0b"
+                pct={strikeRate}
+                icon={<MaterialCommunityIcons name="lightning-bolt" size={16} color="#f59e0b" />}
+              />
+              <View style={styles.statDivider} />
+              <BigStat
+                value={`${spareRate}%`}
+                label="Spare Conv."
+                color="#10b981"
+                pct={spareRate}
+                icon={<Ionicons name="checkmark-circle" size={16} color="#10b981" />}
+              />
+            </View>
+
+            {/* Leaves */}
+            {summary.top_leaves?.length > 0 && (
+              <View style={styles.leavesCard}>
+                <View style={styles.leavesHeader}>
+                  <Ionicons name="pin" size={14} color="#6b7280" />
+                  <Text style={styles.leavesTitle}>COMMON LEAVES</Text>
+                </View>
+                {summary.top_leaves.slice(0, 3).map((l: any, i: number) => (
+                  <View key={i} style={styles.leaveRow}>
+                    <Text style={styles.leaveRank}>#{i + 1}</Text>
+                    <Text style={styles.leaveName}>{l.label}</Text>
+                    <View style={styles.leaveBar}>
+                      <View style={[styles.leaveBarFill, { width: `${Math.min(100, l.count * 20)}%` as any }]} />
+                    </View>
+                    <Text style={styles.leaveCount}>{l.count}×</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </>
+        ) : (
+          <View style={styles.emptyState}>
+            <MaterialCommunityIcons name="bowling" size={52} color="#1f2937" />
+            <Text style={styles.emptyTitle}>No games recorded yet</Text>
+            <Text style={styles.emptySub}>Start a game to see your stats here</Text>
+          </View>
+        )}
+
+        {/* ── Ball Bag ── */}
+        <TouchableOpacity style={styles.bagRow} onPress={() => setShowBag(true)} activeOpacity={0.75}>
+          <View style={styles.bagIconBox}>
+            <FontAwesome5 name="bowling-ball" size={16} color="#3b82f6" />
+          </View>
+          <Text style={styles.bagText}>My Ball Bag</Text>
+          <Ionicons name="chevron-forward" size={18} color="#374151" />
+        </TouchableOpacity>
+
+      </ScrollView>
+    </View>
   );
 }
 
-function StatCard({
-  label, value, icon, color, bg,
-}: { label: string; value: string; icon: React.ReactNode; color: string; bg: string }) {
+function BigStat({ value, label, color, pct, icon }: {
+  value: string; label: string; color: string; pct: number; icon: React.ReactNode;
+}) {
   return (
-    <View style={[styles.statCard, { backgroundColor: bg }]}>
-      <View style={[styles.statIconBox, { backgroundColor: color + "22" }]}>
-        {icon}
+    <View style={styles.bigStat}>
+      <View style={styles.bigStatIcon}>{icon}</View>
+      <Text style={[styles.bigStatValue, { color }]}>{value}</Text>
+      <Text style={styles.bigStatLabel}>{label}</Text>
+      <View style={styles.bigStatBar}>
+        <View style={[styles.bigStatFill, { width: `${Math.min(100, pct)}%` as any, backgroundColor: color }]} />
       </View>
-      <Text style={[styles.statValue, { color }]}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#f1f5f9" },
-  container: { gap: 20, paddingBottom: 40 },
+  root: { flex: 1, backgroundColor: "#0a0f1e" },
+  scroll: { padding: 20, gap: 20, paddingBottom: 48 },
 
-  // Hero
-  hero: {
+  // Logo
+  logo: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 4 },
+  logoIcon: {
+    width: 36, height: 36, borderRadius: 10,
     backgroundColor: "#0f172a",
-    paddingHorizontal: 24, paddingTop: 28, paddingBottom: 32,
-    gap: 6,
+    borderWidth: 1, borderColor: "#1e3a8a",
+    alignItems: "center", justifyContent: "center",
   },
-  heroTitle: { fontSize: 38, fontWeight: "900", color: "#fff", letterSpacing: -1 },
-  heroSub: { fontSize: 15, color: "#94a3b8", marginBottom: 20 },
-  heroBtn: {
-    backgroundColor: "#3b82f6",
+  logoText: { fontSize: 26, fontWeight: "900", color: "#f8fafc", letterSpacing: -0.5 },
+
+  // Hero CTA
+  heroBlock: { gap: 10 },
+  heroLabel: { fontSize: 11, fontWeight: "700", color: "#374151", letterSpacing: 1.5 },
+  ctaBtn: {
+    backgroundColor: "#2563eb",
     borderRadius: 16, padding: 18,
-    alignItems: "center",
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10,
+    shadowColor: "#3b82f6", shadowOpacity: 0.35, shadowRadius: 18, shadowOffset: { width: 0, height: 6 },
+    elevation: 10,
   },
-  heroBtnText: { color: "#fff", fontSize: 17, fontWeight: "800" },
+  ctaBtnText: { color: "#fff", fontSize: 17, fontWeight: "800" },
 
-  // Stats
-  section: { paddingHorizontal: 20, gap: 12 },
-  sectionTitle: { fontSize: 13, fontWeight: "800", color: "#64748b", textTransform: "uppercase", letterSpacing: 0.8 },
-  statsGrid: { flexDirection: "row", gap: 12 },
-  statCard: {
-    flex: 1, borderRadius: 20, padding: 16, gap: 6,
-  },
-  statIconBox: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  statValue: { fontSize: 28, fontWeight: "900" },
-  statLabel: { fontSize: 12, color: "#64748b", fontWeight: "600" },
+  // Section label
+  sectionLabel: { fontSize: 11, fontWeight: "700", color: "#374151", letterSpacing: 1.5 },
 
-  // Leave cards
-  leaveCard: {
-    backgroundColor: "#fff", borderRadius: 16, padding: 16,
-    flexDirection: "row", alignItems: "center", gap: 12,
-    shadowColor: "#000", shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
+  // Big stats
+  statRow: {
+    backgroundColor: "#111827",
+    borderRadius: 20, borderWidth: 1, borderColor: "#1f2937",
+    flexDirection: "row", padding: 20, gap: 0,
   },
-  leaveTitle: { fontSize: 12, color: "#64748b", fontWeight: "600" },
-  leaveValue: { fontSize: 17, fontWeight: "800", color: "#0f172a", marginTop: 2 },
-  leaveCount: { fontSize: 20, fontWeight: "900", color: "#94a3b8" },
-  moreLeaves: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  leavePill: {
-    backgroundColor: "#e2e8f0", borderRadius: 20,
-    paddingHorizontal: 12, paddingVertical: 6,
+  bigStat: { flex: 1, gap: 4 },
+  bigStatIcon: { marginBottom: 4 },
+  bigStatValue: { fontSize: 36, fontWeight: "900", letterSpacing: -1 },
+  bigStatLabel: { fontSize: 11, color: "#6b7280", fontWeight: "600", textTransform: "uppercase" },
+  bigStatBar: { height: 3, backgroundColor: "#1f2937", borderRadius: 2, marginTop: 8 },
+  bigStatFill: { height: 3, borderRadius: 2 },
+  statDivider: { width: 1, backgroundColor: "#1f2937", marginHorizontal: 16, alignSelf: "stretch" },
+
+  // Leaves card
+  leavesCard: {
+    backgroundColor: "#111827",
+    borderRadius: 20, borderWidth: 1, borderColor: "#1f2937",
+    padding: 18, gap: 12,
   },
-  leavePillText: { fontSize: 12, color: "#475569", fontWeight: "600" },
+  leavesHeader: { flexDirection: "row", alignItems: "center", gap: 6 },
+  leavesTitle: { fontSize: 11, fontWeight: "700", color: "#6b7280", letterSpacing: 1.2 },
+  leaveRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  leaveRank: { fontSize: 11, color: "#374151", fontWeight: "700", width: 20 },
+  leaveName: { fontSize: 14, color: "#d1d5db", fontWeight: "600", width: 110 },
+  leaveBar: { flex: 1, height: 4, backgroundColor: "#1f2937", borderRadius: 2 },
+  leaveBarFill: { height: 4, backgroundColor: "#f59e0b", borderRadius: 2 },
+  leaveCount: { fontSize: 12, color: "#6b7280", fontWeight: "700", width: 24, textAlign: "right" },
 
   // Empty state
-  emptyState: {
-    marginHorizontal: 20, backgroundColor: "#fff",
-    borderRadius: 20, padding: 32, alignItems: "center", gap: 10,
-    shadowColor: "#000", shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
-  },
-  emptyText: { color: "#94a3b8", fontSize: 15, textAlign: "center" },
+  emptyState: { alignItems: "center", gap: 8, paddingVertical: 32 },
+  emptyTitle: { fontSize: 16, fontWeight: "700", color: "#374151" },
+  emptySub: { fontSize: 13, color: "#1f2937" },
 
   // Ball bag
-  bagBtn: {
-    marginHorizontal: 20, backgroundColor: "#fff",
-    borderRadius: 16, padding: 18,
-    flexDirection: "row", alignItems: "center", gap: 12,
-    shadowColor: "#000", shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
+  bagRow: {
+    backgroundColor: "#111827", borderRadius: 16,
+    borderWidth: 1, borderColor: "#1f2937",
+    flexDirection: "row", alignItems: "center",
+    padding: 16, gap: 12,
   },
-  bagBtnText: { flex: 1, fontSize: 16, fontWeight: "700", color: "#0f172a" },
-  bagBtnChevron: { fontSize: 22, color: "#cbd5e1" },
+  bagIconBox: {
+    width: 34, height: 34, borderRadius: 10,
+    backgroundColor: "#0f172a", borderWidth: 1, borderColor: "#1e3a8a",
+    alignItems: "center", justifyContent: "center",
+  },
+  bagText: { flex: 1, fontSize: 15, fontWeight: "700", color: "#d1d5db" },
 });
