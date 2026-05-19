@@ -3,6 +3,7 @@ import {
   Modal, View, Text, StyleSheet,
   TouchableOpacity, ActivityIndicator,
 } from "react-native";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { getCoaching } from "../api/client";
 
 interface Props {
@@ -86,10 +87,10 @@ export default function CoachModal({
 
           {/* Header */}
           <View style={styles.headerRow}>
-            <Text style={styles.headerIcon}>🎯</Text>
+            <MaterialCommunityIcons name="target" size={26} color="#1e3a8a" />
             <Text style={styles.headerTitle}>Coach</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Text style={styles.closeBtnText}>✕</Text>
+              <Ionicons name="close" size={22} color="#9ca3af" />
             </TouchableOpacity>
           </View>
 
@@ -141,7 +142,8 @@ export default function CoachModal({
 
               {/* Re-analyze */}
               <TouchableOpacity onPress={fetch} style={styles.reanalyzeBtn}>
-                <Text style={styles.reanalyzeText}>↺  Re-analyze</Text>
+                <Ionicons name="refresh" size={16} color="#6b7280" />
+                <Text style={styles.reanalyzeText}>Re-analyze</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -178,7 +180,6 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: "row", alignItems: "center", gap: 10,
   },
-  headerIcon: { fontSize: 22 },
   headerTitle: { flex: 1, fontSize: 20, fontWeight: "900", color: "#0f172a" },
   closeBtn: { padding: 4 },
   closeBtnText: { fontSize: 18, color: "#9ca3af" },
@@ -218,6 +219,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8, textTransform: "uppercase",
   },
   adjustmentText: { color: "#1e3a8a", fontSize: 15, fontWeight: "700", lineHeight: 22 },
-  reanalyzeBtn: { alignItems: "center", paddingVertical: 4 },
+  reanalyzeBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 4 },
   reanalyzeText: { color: "#6b7280", fontSize: 14, fontWeight: "600" },
 });

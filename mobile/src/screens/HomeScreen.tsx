@@ -4,6 +4,7 @@ import {
   ScrollView, StatusBar,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { getSummary } from "../api/client";
 import GameScreen from "./GameScreen";
 import GameSetupScreen from "./GameSetupScreen";
@@ -78,21 +79,21 @@ export default function HomeScreen() {
             <StatCard
               label="Strike Rate"
               value={`${summary.strike_rate}%`}
-              icon="🎳"
+              icon={<MaterialCommunityIcons name="lightning-bolt" size={20} color="#1e3a8a" />}
               color="#1e3a8a"
               bg="#eff6ff"
             />
             <StatCard
               label="Spare Conv."
               value={`${summary.spare_conversion_rate}%`}
-              icon="✅"
+              icon={<Ionicons name="checkmark-circle" size={20} color="#059669" />}
               color="#059669"
               bg="#f0fdf4"
             />
           </View>
           {summary.top_leaves?.[0] && (
             <View style={styles.leaveCard}>
-              <Text style={styles.leaveIcon}>📌</Text>
+              <Ionicons name="pin" size={22} color="#f59e0b" />
               <View style={{ flex: 1 }}>
                 <Text style={styles.leaveTitle}>Most Common Leave</Text>
                 <Text style={styles.leaveValue}>{summary.top_leaves[0].label}</Text>
@@ -112,16 +113,16 @@ export default function HomeScreen() {
         </View>
       ) : (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyIcon}>🎳</Text>
+          <MaterialCommunityIcons name="bowling" size={48} color="#cbd5e1" />
           <Text style={styles.emptyText}>No games yet. Start one to track your stats.</Text>
         </View>
       )}
 
       {/* Ball bag button */}
       <TouchableOpacity style={styles.bagBtn} onPress={() => setShowBag(true)}>
-        <Text style={styles.bagBtnIcon}>🎱</Text>
+        <MaterialCommunityIcons name="bowling-ball" size={24} color="#1e3a8a" />
         <Text style={styles.bagBtnText}>My Ball Bag</Text>
-        <Text style={styles.bagBtnChevron}>›</Text>
+        <Ionicons name="chevron-forward" size={20} color="#cbd5e1" />
       </TouchableOpacity>
     </ScrollView>
   );
@@ -129,11 +130,11 @@ export default function HomeScreen() {
 
 function StatCard({
   label, value, icon, color, bg,
-}: { label: string; value: string; icon: string; color: string; bg: string }) {
+}: { label: string; value: string; icon: React.ReactNode; color: string; bg: string }) {
   return (
     <View style={[styles.statCard, { backgroundColor: bg }]}>
       <View style={[styles.statIconBox, { backgroundColor: color + "22" }]}>
-        <Text style={styles.statIcon}>{icon}</Text>
+        {icon}
       </View>
       <Text style={[styles.statValue, { color }]}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
@@ -168,7 +169,6 @@ const styles = StyleSheet.create({
     flex: 1, borderRadius: 20, padding: 16, gap: 6,
   },
   statIconBox: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  statIcon: { fontSize: 18 },
   statValue: { fontSize: 28, fontWeight: "900" },
   statLabel: { fontSize: 12, color: "#64748b", fontWeight: "600" },
 
@@ -178,7 +178,6 @@ const styles = StyleSheet.create({
     flexDirection: "row", alignItems: "center", gap: 12,
     shadowColor: "#000", shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
   },
-  leaveIcon: { fontSize: 22 },
   leaveTitle: { fontSize: 12, color: "#64748b", fontWeight: "600" },
   leaveValue: { fontSize: 17, fontWeight: "800", color: "#0f172a", marginTop: 2 },
   leaveCount: { fontSize: 20, fontWeight: "900", color: "#94a3b8" },
@@ -195,7 +194,6 @@ const styles = StyleSheet.create({
     borderRadius: 20, padding: 32, alignItems: "center", gap: 10,
     shadowColor: "#000", shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
   },
-  emptyIcon: { fontSize: 36 },
   emptyText: { color: "#94a3b8", fontSize: 15, textAlign: "center" },
 
   // Ball bag
@@ -205,7 +203,6 @@ const styles = StyleSheet.create({
     flexDirection: "row", alignItems: "center", gap: 12,
     shadowColor: "#000", shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
   },
-  bagBtnIcon: { fontSize: 22 },
   bagBtnText: { flex: 1, fontSize: 16, fontWeight: "700", color: "#0f172a" },
   bagBtnChevron: { fontSize: 22, color: "#cbd5e1" },
 });

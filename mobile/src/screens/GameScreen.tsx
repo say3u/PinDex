@@ -11,6 +11,7 @@ import RecommenderModal from "../components/RecommenderModal";
 import CoachModal from "../components/CoachModal";
 import { loadBag, BallSpec } from "./BallBagScreen";
 import { logFrame } from "../api/client";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 
 const INFO = {
   startBoard: "The board you stand on at the approach. Boards are numbered 1–39, right to left for right-handers. Most house shot players start around board 15–25.",
@@ -244,10 +245,10 @@ export default function GameScreen({ gameId, bowlerId, handStyle, oilPattern, on
 
         <View style={styles.headerActions}>
           <TouchableOpacity onPress={() => setShowCoach(true)} style={styles.actionBtn}>
-            <Text style={styles.actionBtnText}>🎯</Text>
+            <MaterialCommunityIcons name="target" size={20} color="#94a3b8" />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setShowRecommender(true)} style={[styles.actionBtn, styles.actionBtnBlue]}>
-            <Text style={styles.actionBtnText}>🎳</Text>
+            <MaterialCommunityIcons name="bowling" size={20} color="#fff" />
           </TouchableOpacity>
         </View>
       </View>
@@ -280,14 +281,16 @@ export default function GameScreen({ gameId, bowlerId, handStyle, oilPattern, on
       <View style={styles.quickRow}>
         {(ball === 1 || (currentFrame === 10 && ball > 1)) && (
           <TouchableOpacity style={styles.strikeBtn} onPress={markStrike} disabled={loading}>
+            <MaterialCommunityIcons name="lightning-bolt" size={20} color="#fff" />
             <Text style={styles.strikeBtnText}>
-              {currentFrame === 10 && ball === 3 ? "ALL DOWN" : "⚡ STRIKE"}
+              {currentFrame === 10 && ball === 3 ? "ALL DOWN" : "STRIKE"}
             </Text>
           </TouchableOpacity>
         )}
         {ball === 2 && currentFrame < 10 && (
           <TouchableOpacity style={styles.spareBtn} onPress={markSpare} disabled={loading}>
-            <Text style={styles.spareBtnText}>✓ SPARE</Text>
+            <Ionicons name="checkmark-circle" size={20} color="#fff" />
+            <Text style={styles.spareBtnText}>SPARE</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -377,12 +380,17 @@ export default function GameScreen({ gameId, bowlerId, handStyle, oilPattern, on
       >
         {loading
           ? <ActivityIndicator color="#fff" />
-          : <Text style={styles.confirmBtnText}>
-              {isStrikeSituation ? "⚡ STRIKE — Confirm"
-                : isSpareSituation ? "✓ SPARE — Confirm"
-                : ball < 3 ? "Next Ball →"
-                : "Finish Game"}
-            </Text>
+          : <View style={styles.confirmBtnInner}>
+              {isStrikeSituation && <MaterialCommunityIcons name="lightning-bolt" size={20} color="#fff" />}
+              {isSpareSituation && <Ionicons name="checkmark-circle" size={20} color="#fff" />}
+              {!isStrikeSituation && !isSpareSituation && ball < 3 && <Ionicons name="arrow-forward" size={18} color="#fff" />}
+              <Text style={styles.confirmBtnText}>
+                {isStrikeSituation ? "STRIKE — Confirm"
+                  : isSpareSituation ? "SPARE — Confirm"
+                  : ball < 3 ? "Next Ball"
+                  : "Finish Game"}
+              </Text>
+            </View>
         }
       </TouchableOpacity>
 
@@ -463,11 +471,13 @@ const styles = StyleSheet.create({
   strikeBtn: {
     backgroundColor: "#0f172a", borderRadius: 14,
     padding: 14, alignItems: "center",
+    flexDirection: "row", justifyContent: "center", gap: 8,
   },
   strikeBtnText: { color: "#fff", fontWeight: "900", fontSize: 17, letterSpacing: 0.5 },
   spareBtn: {
     backgroundColor: "#059669", borderRadius: 14,
     padding: 14, alignItems: "center",
+    flexDirection: "row", justifyContent: "center", gap: 8,
   },
   spareBtnText: { color: "#fff", fontWeight: "900", fontSize: 17 },
 
@@ -497,7 +507,9 @@ const styles = StyleSheet.create({
   confirmBtn: {
     marginHorizontal: 16, backgroundColor: "#334155",
     borderRadius: 16, padding: 18, alignItems: "center",
+    flexDirection: "row", justifyContent: "center",
   },
+  confirmBtnInner: { flexDirection: "row", alignItems: "center", gap: 8 },
   confirmBtnStrike: { backgroundColor: "#0f172a" },
   confirmBtnSpare: { backgroundColor: "#059669" },
   btnDisabled: { opacity: 0.5 },
