@@ -23,3 +23,16 @@ export const logFrame = (payload: {
 
 export const getSummary = (bowlerId: string) =>
   api.get(`/stats/${bowlerId}/summary`).then((r) => r.data);
+
+export const lookupBall = (name: string) =>
+  api.post("/balls/lookup", { name }).then((r) => r.data);
+
+export const recommendBall = (payload: {
+  balls: any[];
+  strike_rate: number;
+  recent_leaves: string[];
+  oil_pattern: string;
+  frames_played: number;
+  avg_speed?: number;
+  avg_hook?: number;
+}) => api.post("/balls/recommend", payload).then((r) => r.data);

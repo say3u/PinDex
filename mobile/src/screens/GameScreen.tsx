@@ -7,6 +7,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import PinDeck from "../components/PinDeck";
 import InfoButton from "../components/InfoModal";
 import LaneSelector from "../components/LaneSelector";
+import RecommenderModal from "../components/RecommenderModal";
+import { loadBag, BallSpec } from "./BallBagScreen";
 import { logFrame } from "../api/client";
 
 const INFO = {
@@ -43,13 +45,22 @@ interface Props {
   gameId: string;
   bowlerId: string;
   handStyle: string;
+  oilPattern: string;
   onFinish: () => void;
 }
 
-export default function GameScreen({ gameId, bowlerId, handStyle, onFinish }: Props) {
+export default function GameScreen({ gameId, bowlerId, handStyle, oilPattern, onFinish }: Props) {
   const insets = useSafeAreaInsets();
   const [currentFrame, setCurrentFrame] = useState(1);
   const [ball, setBall] = useState<1 | 2 | 3>(1);
+  const [showRecommender, setShowRecommender] = useState(false);
+  const [bag, setBag] = useState<BallSpec[]>([]);
+  const [strikes, setStrikes] = useState(0);
+  const [speeds, setSpeeds] = useState<number[]>([]);
+  const [hooks, setHooks] = useState<number[]>([]);
+  const [leaves, setLeaves] = useState<string[]>([]);
+
+  React.useEffect(() => { loadBag().then(setBag); }, []);
 
   // Pins still standing — user taps to toggle
   const [standingBall1, setStandingBall1] = useState<Set<number>>(new Set());
@@ -185,6 +196,13 @@ export default function GameScreen({ gameId, bowlerId, handStyle, onFinish }: Pr
         isSpare: spare,
         pinsLeft: b1.size,
       }]);
+      if (strike) setStrikes((s) => s + 1);
+      if (speed) setSpeeds((prev) => [...prev, parseFloat(speed)]);
+      setHooks((prev) => [...prev, hook]);
+      if (b1.size > 0) {
+        const leaveLabel = `${b1.size} pin${b1.size > 1 ? "s" : ""} left`;
+        setLeaves((prev) => [...prev, leaveLabel]);
+      }
     } catch {
       Alert.alert("Error", "Failed to save frame. Check your connection.");
     } finally {
@@ -234,7 +252,9 @@ export default function GameScreen({ gameId, bowlerId, handStyle, onFinish }: Pr
           <Text style={styles.exitText}>✕ Exit</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Frame {currentFrame} · Ball {ball}</Text>
-        <View style={{ width: 60 }} />
+        <TouchableOpacity onPress={() => setShowRecommender(true)} style={styles.aiBtn}>
+          <Text style={styles.aiBtnText}>AI 🎳</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Scorecard */}
@@ -331,6 +351,18 @@ export default function GameScreen({ gameId, bowlerId, handStyle, onFinish }: Pr
         </View>
       )}
 
+      <RecommenderModal
+        visible={showRecommender}
+        onClose={() => setShowRecommender(false)}
+        bag={bag}
+        strikeRate={frames.length ? Math.round(strikes / frames.length * 100) : 0}
+        recentLeaves={leaves.slice(-5)}
+        oilPattern={oilPattern}
+        framesPlayed={frames.length}
+        avgSpeed={speeds.length ? speeds.reduce((a, b) => a + b) / speeds.length : undefined}
+        avgHook={hooks.length ? hooks.reduce((a, b) => a + b) / hooks.length : undefined}
+      />
+
       {/* Confirm button */}
       <TouchableOpacity
         style={[styles.confirmBtn, loading && styles.btnDisabled]}
@@ -357,6 +389,8 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   exitBtn: { padding: 8 },
   exitText: { color: "#ef4444", fontWeight: "600", fontSize: 14 },
+  aiBtn: { backgroundColor: "#1e3a8a", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
+  aiBtnText: { color: "#fff", fontWeight: "700", fontSize: 13 },
   title: { fontSize: 18, fontWeight: "800", color: "#1e3a8a" },
   scorecard: { flexDirection: "row" },
   frameBox: {

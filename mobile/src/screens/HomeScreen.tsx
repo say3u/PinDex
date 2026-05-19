@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getSummary } from "../api/client";
 import GameScreen from "./GameScreen";
 import GameSetupScreen from "./GameSetupScreen";
+import BallBagScreen from "./BallBagScreen";
 
 // Hardcoded for MVP — replace with auth later
 const BOWLER_ID = "00000000-0000-0000-0000-000000000001";
@@ -19,7 +20,9 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const [activeGame, setActiveGame] = useState<string | null>(null);
   const [showSetup, setShowSetup] = useState(false);
+  const [showBag, setShowBag] = useState(false);
   const [handStyle, setHandStyle] = useState("1hand");
+  const [oilPattern, setOilPattern] = useState("house");
   const [summary, setSummary] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
@@ -36,8 +39,9 @@ export default function HomeScreen() {
     }
   }
 
-  function handleStart(gameId: string, style: string) {
+  function handleStart(gameId: string, style: string, oil: string) {
     setHandStyle(style);
+    setOilPattern(oil);
     setActiveGame(gameId);
     setShowSetup(false);
   }
@@ -45,6 +49,10 @@ export default function HomeScreen() {
   function handleFinish() {
     setActiveGame(null);
     loadSummary();
+  }
+
+  if (showBag) {
+    return <BallBagScreen onBack={() => setShowBag(false)} />;
   }
 
   if (showSetup) {
@@ -59,7 +67,7 @@ export default function HomeScreen() {
 
   if (activeGame) {
     return (
-      <GameScreen gameId={activeGame} bowlerId={BOWLER_ID} handStyle={handStyle} onFinish={handleFinish} />
+      <GameScreen gameId={activeGame} bowlerId={BOWLER_ID} handStyle={handStyle} oilPattern={oilPattern} onFinish={handleFinish} />
     );
   }
 
@@ -81,11 +89,12 @@ export default function HomeScreen() {
         </View>
       )}
 
-      <TouchableOpacity
-        style={styles.btn}
-        onPress={() => setShowSetup(true)}
-      >
+      <TouchableOpacity style={styles.btn} onPress={() => setShowSetup(true)}>
         <Text style={styles.btnText}>Start New Game</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.bagBtn} onPress={() => setShowBag(true)}>
+        <Text style={styles.bagBtnText}>🎳 My Ball Bag</Text>
       </TouchableOpacity>
     </View>
   );
@@ -129,4 +138,9 @@ const styles = StyleSheet.create({
   },
   btnDisabled: { opacity: 0.5 },
   btnText: { color: "#fff", fontSize: 18, fontWeight: "700" },
+  bagBtn: {
+    backgroundColor: "#fff", borderWidth: 1.5, borderColor: "#1e3a8a",
+    padding: 14, borderRadius: 14, width: "100%", alignItems: "center",
+  },
+  bagBtnText: { color: "#1e3a8a", fontSize: 16, fontWeight: "700" },
 });

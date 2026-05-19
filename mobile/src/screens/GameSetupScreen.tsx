@@ -20,7 +20,7 @@ const HAND_STYLES = [
 
 interface Props {
   bowlerId: string;
-  onStart: (gameId: string, handStyle: string) => void;
+  onStart: (gameId: string, handStyle: string, oilPattern: string) => void;
   onCancel: () => void;
 }
 
@@ -36,7 +36,7 @@ export default function GameSetupScreen({ bowlerId, onStart, onCancel }: Props) 
     setLoading(true);
     try {
       const game = await createGame(bowlerId, lane ? parseInt(lane) : undefined, undefined, oilPattern, ball || undefined);
-      onStart(game.id, handStyle);
+      onStart(game.id, handStyle, oilPattern);
     } finally {
       setLoading(false);
     }
