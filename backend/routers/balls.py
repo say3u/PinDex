@@ -5,25 +5,31 @@ from groq import Groq
 
 router = APIRouter()
 
-SYSTEM_PROMPT = """You are a bowling ball expert with deep knowledge of every ball ever made.
-When given a ball name, return ONLY a JSON object with these exact fields:
+SYSTEM_PROMPT = """You are a bowling ball expert. When given a ball name, identify the ball and return ONLY a JSON object.
+
+CRITICAL RULES:
+- For rg and diff: only return real numbers if you are 100% certain of the exact spec. Otherwise use null.
+- For finish, core, coverstock name: only return the real value if you are certain. Otherwise use null.
+- Do NOT invent or estimate numbers. A null is better than a wrong number.
+- The descriptive fields (length, backend, hook, lane_condition, recommended_for) are general categories — use your best judgment for these.
+- If you cannot confidently identify the ball, return {"found": false}.
+
+Return ONLY valid JSON with these exact fields (no markdown, no explanation):
 {
   "name": "full official ball name",
   "brand": "brand name",
-  "coverstock": "coverstock name and type (solid/pearl/hybrid)",
-  "core": "core name",
-  "rg": 2.50,
-  "diff": 0.050,
-  "finish": "factory finish (e.g. 500/2000 Abralon)",
+  "coverstock": "coverstock name and type (solid/pearl/hybrid) or null if unsure",
+  "core": "core name or null if unsure",
+  "rg": null,
+  "diff": null,
+  "finish": "factory finish or null if unsure",
   "length": "Short | Medium-Short | Medium | Medium-Long | Long | Very Long",
   "backend": "Low | Medium | Strong | Very Strong",
   "hook": "Low | Medium | Medium-High | High | Very High",
   "recommended_for": "one sentence on who this ball is best for",
   "lane_condition": "Oily | Medium | Dry | All",
   "found": true
-}
-If you don't recognize the ball, return {"found": false}.
-Return ONLY valid JSON. No markdown, no explanation."""
+}"""
 
 
 class BallQuery(BaseModel):

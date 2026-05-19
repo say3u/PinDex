@@ -1,23 +1,11 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  Modal, ScrollView, SafeAreaView,
+  Modal, SafeAreaView, Pressable,
 } from "react-native";
 
-const ARROW_BOARDS = [5, 10, 15, 20, 25, 30, 35];
+const ARROW_BOARDS = new Set([5, 10, 15, 20, 25, 30, 35]);
 const TOTAL_BOARDS = 39;
-
-// Helpful labels for notable boards
-const BOARD_NOTES: Record<number, string> = {
-  5:  "1st arrow",
-  10: "2nd arrow",
-  15: "3rd arrow",
-  17: "ideal entry",
-  20: "4th arrow (center)",
-  25: "5th arrow",
-  30: "6th arrow",
-  35: "7th arrow",
-};
 
 interface Props {
   startBoard: number | null;
@@ -35,14 +23,14 @@ const TYPE_COLORS = {
 };
 
 const TYPE_LABELS = {
-  start:  "Start Board",
-  target: "Target Board",
-  impact: "Impact Board",
+  start:  "Start",
+  target: "Target",
+  impact: "Impact",
 };
 
 const TYPE_HINTS = {
   start:  "Where you stand at the approach. Right-handers typically start around boards 15–25.",
-  target: "The board you aim at through the arrows (~15 ft down lane). 2nd arrow = board 10.",
+  target: "Board you aim at through the arrows (~15 ft down lane). 2nd arrow = board 10.",
   impact: "Where your ball enters the pocket. Ideal right-hand entry is around board 17.",
 };
 
@@ -63,40 +51,39 @@ export default function LaneSelector({
     setModalType(null);
   }
 
-  const selectedValue = (type: "start" | "target" | "impact") =>
+  const getValue = (type: "start" | "target" | "impact") =>
     type === "start" ? startBoard : type === "target" ? targetBoard : impactBoard;
 
   return (
     <View style={styles.container}>
+      {/* Three type buttons */}
       <View style={styles.typeRow}>
         {(["start", "target", "impact"] as const).map((type) => {
-          const val = selectedValue(type);
+          const val = getValue(type);
           const color = TYPE_COLORS[type];
+          const active = val !== null;
           return (
             <TouchableOpacity
               key={type}
-              style={[styles.typeBtn, { borderColor: color }, val && { backgroundColor: color }]}
+              style={[styles.typeBtn, { borderColor: color }, active && { backgroundColor: color }]}
               onPress={() => openModal(type)}
             >
-              <Text style={[styles.typeBtnLabel, val ? styles.typeLabelSelected : { color }]}>
-                {TYPE_LABELS[type].split(" ")[0]}
+              <Text style={[styles.typeBtnLabel, active ? styles.textWhite : { color }]}>
+                {TYPE_LABELS[type]}
               </Text>
-              <Text style={[styles.typeBtnValue, val ? styles.typeValueSelected : { color }]}>
-                {val ? `Bd ${val}` : "Tap to set"}
+              <Text style={[styles.typeBtnValue, active ? styles.textWhiteFaint : { color }]}>
+                {val !== null ? `Board ${val}` : "Tap to set"}
               </Text>
             </TouchableOpacity>
           );
         })}
       </View>
 
-      {/* Compact lane summary */}
-      <CompactLane start={startBoard} target={targetBoard} impact={impactBoard} />
-
-      {/* Full-screen board picker modal */}
-      {modalType && (
-        <BoardPickerModal
+      {/* Full-screen visual lane picker */}
+      {modalType !== null && (
+        <LanePickerModal
           type={modalType}
-          currentValue={selectedValue(modalType)}
+          current={getValue(modalType)}
           onSelect={handleSelect}
           onClose={() => setModalType(null)}
         />
@@ -105,264 +92,326 @@ export default function LaneSelector({
   );
 }
 
-function BoardPickerModal({
-  type, currentValue, onSelect, onClose,
+// ─── Visual lane picker modal ──────────────────────────────────────────────
+
+function LanePickerModal({
+  type, current, onSelect, onClose,
 }: {
   type: "start" | "target" | "impact";
-  currentValue: number | null;
-  onSelect: (board: number) => void;
+  current: number | null;
+  onSelect: (b: number) => void;
   onClose: () => void;
 }) {
   const color = TYPE_COLORS[type];
+  const [selected, setSelected] = useState<number | null>(current);
+  const laneWidthRef = useRef(0);
+
+  function boardFromX(x: number): number {
+    const w = laneWidthRef.current;
+    if (!w) return 20;
+    // Left side = board 39, right side = board 1 (right-handed convention)
+    const raw = Math.round(TOTAL_BOARDS - (x / w) * (TOTAL_BOARDS - 1));
+    return Math.max(1, Math.min(TOTAL_BOARDS, raw));
+  }
+
+  function handleLanePress(e: any) {
+    const board = boardFromX(e.nativeEvent.locationX);
+    setSelected(board);
+  }
+
+  function handleConfirm() {
+    if (selected !== null) onSelect(selected);
+    else onClose();
+  }
+
+  // Build board columns
+  const columns = Array.from({ length: TOTAL_BOARDS }, (_, i) => {
+    const board = TOTAL_BOARDS - i; // 39 → 1, left to right
+    return { board, isArrow: ARROW_BOARDS.has(board), isSelected: selected === board };
+  });
 
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView style={[styles.modalContainer, { backgroundColor: "#f9fafb" }]}>
+      <SafeAreaView style={styles.modalRoot}>
+
         {/* Header */}
         <View style={[styles.modalHeader, { borderBottomColor: color }]}>
-          <View style={styles.modalHeaderLeft} />
-          <View style={styles.modalTitleGroup}>
-            <Text style={[styles.modalTitle, { color }]}>{TYPE_LABELS[type]}</Text>
-          </View>
-          <TouchableOpacity onPress={onClose} style={styles.modalCloseBtn}>
-            <Text style={styles.modalCloseText}>Done</Text>
+          <TouchableOpacity onPress={onClose} style={styles.cancelBtn}>
+            <Text style={styles.cancelText}>Cancel</Text>
+          </TouchableOpacity>
+          <Text style={[styles.modalTitle, { color }]}>
+            {TYPE_LABELS[type]} Board
+          </Text>
+          <TouchableOpacity
+            onPress={handleConfirm}
+            style={[styles.doneBtn, { backgroundColor: color }]}
+          >
+            <Text style={styles.doneText}>
+              {selected !== null ? `Set  ${selected}` : "Skip"}
+            </Text>
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.modalHint}>{TYPE_HINTS[type]}</Text>
+        <Text style={styles.hintText}>{TYPE_HINTS[type]}</Text>
 
-        {/* Lane orientation diagram */}
-        <View style={styles.laneOrientation}>
-          <Text style={styles.orientationLabel}>← Left (39)    Right (1) →</Text>
-          <Text style={styles.orientationSub}>Right-handed bowlers: board 1 is on your right</Text>
+        {/* Selected board callout */}
+        <View style={[styles.boardCallout, { borderColor: color }]}>
+          {selected !== null ? (
+            <>
+              <Text style={[styles.boardCalloutNum, { color }]}>{selected}</Text>
+              <Text style={styles.boardCalloutLabel}>
+                {ARROW_BOARDS.has(selected)
+                  ? `Arrow ${[...ARROW_BOARDS].sort((a, b) => a - b).indexOf(selected) + 1}`
+                  : selected === 17 ? "ideal entry" : `board ${selected}`}
+              </Text>
+            </>
+          ) : (
+            <Text style={styles.boardCalloutPrompt}>Tap the lane to select a board</Text>
+          )}
         </View>
 
-        {/* Board list */}
-        <ScrollView
-          contentContainerStyle={styles.boardList}
-          showsVerticalScrollIndicator={false}
-        >
-          {Array.from({ length: TOTAL_BOARDS }, (_, i) => {
-            const board = TOTAL_BOARDS - i; // 39 down to 1
-            const isSelected = currentValue === board;
-            const isArrow = ARROW_BOARDS.includes(board);
-            const note = BOARD_NOTES[board];
+        {/* Visual lane — tappable */}
+        <View style={styles.laneWrapper}>
+          {/* Left/right labels */}
+          <View style={styles.boardEdgeLabels}>
+            <Text style={styles.edgeLabel}>39 ←</Text>
+            <Text style={styles.edgeLabel}>→ 1</Text>
+          </View>
 
-            return (
-              <TouchableOpacity
-                key={board}
-                style={[
-                  styles.boardRow,
-                  isSelected && { backgroundColor: color },
-                  isArrow && !isSelected && styles.boardRowArrow,
-                ]}
-                onPress={() => onSelect(board)}
-                activeOpacity={0.7}
-              >
-                {/* Board number */}
-                <View style={styles.boardNumBox}>
-                  <Text style={[styles.boardRowNum, isSelected && styles.boardRowNumSelected]}>
-                    {board}
-                  </Text>
-                </View>
+          {/* Gutter + Lane + Gutter */}
+          <View style={styles.laneRow}>
+            <View style={styles.gutter} />
 
-                {/* Arrow indicator */}
-                <View style={styles.boardIndicatorArea}>
-                  {isArrow && (
-                    <View style={[styles.arrowIndicator, isSelected && { backgroundColor: "#fff" }]} />
-                  )}
-                </View>
+            {/* Lane surface — full height pressable */}
+            <Pressable
+              style={styles.laneSurface}
+              onLayout={(e) => { laneWidthRef.current = e.nativeEvent.layout.width; }}
+              onPress={handleLanePress}
+            >
+              {/* Pin deck zone (top) */}
+              <View style={styles.pinDeck} pointerEvents="none">
+                <Text style={styles.zoneText}>Pin Deck</Text>
+              </View>
 
-                {/* Note */}
-                <Text style={[styles.boardNote, isSelected && styles.boardNoteSelected]}>
-                  {note ?? (isArrow ? "arrow" : "")}
+              {/* Mid lane */}
+              <View style={styles.midLane} pointerEvents="none" />
+
+              {/* Arrow zone */}
+              <View style={styles.arrowZone} pointerEvents="none">
+                <Text style={styles.zoneText}>Arrows</Text>
+              </View>
+
+              {/* Foul line */}
+              <View style={styles.foulLine} pointerEvents="none">
+                <Text style={styles.foulLineText}>Foul Line</Text>
+              </View>
+
+              {/* Board columns overlaid */}
+              <View style={styles.boardColumns} pointerEvents="none">
+                {columns.map(({ board, isArrow, isSelected }) => (
+                  <View
+                    key={board}
+                    style={[
+                      styles.boardColumn,
+                      isArrow && styles.arrowColumn,
+                      isSelected && { backgroundColor: color + "cc" },
+                    ]}
+                  >
+                    {isArrow && !isSelected && (
+                      <View style={styles.arrowDot} />
+                    )}
+                  </View>
+                ))}
+              </View>
+
+              {/* Selected board indicator line */}
+              {selected !== null && (
+                <View
+                  pointerEvents="none"
+                  style={[
+                    styles.selectedLine,
+                    {
+                      left: `${((TOTAL_BOARDS - selected) / (TOTAL_BOARDS - 1)) * 100}%` as any,
+                      backgroundColor: color,
+                    },
+                  ]}
+                />
+              )}
+            </Pressable>
+
+            <View style={styles.gutter} />
+          </View>
+
+          {/* Board number tick marks */}
+          <View style={styles.tickRow}>
+            {[39, 35, 30, 25, 20, 15, 10, 5, 1].map((n) => {
+              const pct = ((TOTAL_BOARDS - n) / (TOTAL_BOARDS - 1)) * 100;
+              return (
+                <Text
+                  key={n}
+                  style={[styles.tickLabel, { left: `${pct}%` as any }]}
+                >
+                  {n}
                 </Text>
+              );
+            })}
+          </View>
+        </View>
 
-                {/* Checkmark */}
-                {isSelected && (
-                  <Text style={styles.checkmark}>✓</Text>
-                )}
+        {/* Quick-tap arrow boards */}
+        <View style={styles.quickSection}>
+          <Text style={styles.quickLabel}>QUICK SELECT — ARROWS</Text>
+          <View style={styles.quickRow}>
+            {[...ARROW_BOARDS].sort((a, b) => a - b).map((b, i) => (
+              <TouchableOpacity
+                key={b}
+                style={[
+                  styles.quickBtn,
+                  { borderColor: color },
+                  selected === b && { backgroundColor: color },
+                ]}
+                onPress={() => setSelected(b)}
+              >
+                <Text style={[styles.quickBtnNum, selected === b && styles.textWhite]}>{b}</Text>
+                <Text style={[styles.quickBtnSub, selected === b && styles.textWhiteFaint]}>
+                  {i + 1}{i === 0 ? "st" : i === 1 ? "nd" : i === 2 ? "rd" : "th"}
+                </Text>
               </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+            ))}
+          </View>
+        </View>
+
       </SafeAreaView>
     </Modal>
   );
 }
 
-// Mini lane diagram showing all 3 boards in context
-function CompactLane({
-  start, target, impact,
-}: { start: number | null; target: number | null; impact: number | null }) {
-  if (!start && !target && !impact) return null;
-
-  return (
-    <View style={styles.compactLane}>
-      <View style={styles.compactTrack}>
-        {/* Foul line */}
-        <View style={styles.foulLine} />
-        {/* Arrow zone */}
-        <View style={styles.arrowZone}>
-          <Text style={styles.zoneLabel}>Arrows</Text>
-        </View>
-        {/* Pin zone */}
-        <View style={styles.pinZone}>
-          <Text style={styles.zoneLabel}>Pins</Text>
-        </View>
-
-        {/* Board markers */}
-        {start !== null && (
-          <BoardMarker board={start} zone="foul" color={TYPE_COLORS.start} label="S" />
-        )}
-        {target !== null && (
-          <BoardMarker board={target} zone="arrow" color={TYPE_COLORS.target} label="T" />
-        )}
-        {impact !== null && (
-          <BoardMarker board={impact} zone="pin" color={TYPE_COLORS.impact} label="I" />
-        )}
-      </View>
-
-      <View style={styles.compactLegend}>
-        {start   !== null && <LegendPill color={TYPE_COLORS.start}  label={`S: Bd ${start}`} />}
-        {target  !== null && <LegendPill color={TYPE_COLORS.target} label={`T: Bd ${target}`} />}
-        {impact  !== null && <LegendPill color={TYPE_COLORS.impact} label={`I: Bd ${impact}`} />}
-      </View>
-    </View>
-  );
-}
-
-function BoardMarker({
-  board, zone, color, label,
-}: { board: number; zone: "foul" | "arrow" | "pin"; color: string; label: string }) {
-  // Convert board 1–39 to a left% (board 39 = left edge, board 1 = right edge)
-  const pct = ((39 - board) / 38) * 100;
-  const top = zone === "foul" ? 6 : zone === "arrow" ? 30 : 54;
-  return (
-    <View
-      style={[
-        styles.boardMarker,
-        { left: `${pct}%` as any, top, backgroundColor: color },
-      ]}
-    >
-      <Text style={styles.boardMarkerText}>{label}</Text>
-    </View>
-  );
-}
-
-function LegendPill({ color, label }: { color: string; label: string }) {
-  return (
-    <View style={[styles.legendPill, { backgroundColor: color }]}>
-      <Text style={styles.legendPillText}>{label}</Text>
-    </View>
-  );
-}
+// ─── Styles ────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: { gap: 10 },
-
-  // Type selector
+  // Inline component
+  container: { gap: 8 },
   typeRow: { flexDirection: "row", gap: 8 },
   typeBtn: {
     flex: 1, borderWidth: 2, borderRadius: 10,
     padding: 8, alignItems: "center",
   },
   typeBtnLabel: { fontSize: 11, fontWeight: "700", textTransform: "uppercase" },
-  typeLabelSelected: { color: "#fff" },
   typeBtnValue: { fontSize: 12, fontWeight: "600", marginTop: 2 },
-  typeValueSelected: { color: "#fff" },
+  textWhite: { color: "#fff" },
+  textWhiteFaint: { color: "rgba(255,255,255,0.8)" },
 
-  // Compact lane
-  compactLane: { gap: 6 },
-  compactTrack: {
-    height: 80,
-    backgroundColor: "#fef3c7",
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    overflow: "hidden",
-    position: "relative",
+  // Modal shell
+  modalRoot: { flex: 1, backgroundColor: "#f9fafb" },
+  modalHeader: {
+    flexDirection: "row", alignItems: "center",
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderBottomWidth: 2, gap: 8,
   },
-  foulLine: {
-    position: "absolute", top: 18, left: 0, right: 0,
-    height: 2, backgroundColor: "#ef4444",
+  cancelBtn: { flex: 1 },
+  cancelText: { color: "#6b7280", fontSize: 15 },
+  modalTitle: { flex: 2, textAlign: "center", fontSize: 17, fontWeight: "800" },
+  doneBtn: { flex: 1, borderRadius: 8, paddingVertical: 6, alignItems: "center" },
+  doneText: { color: "#fff", fontWeight: "700", fontSize: 14 },
+
+  hintText: {
+    textAlign: "center", color: "#6b7280", fontSize: 13,
+    paddingHorizontal: 24, paddingVertical: 10, lineHeight: 18,
+  },
+
+  // Board callout
+  boardCallout: {
+    marginHorizontal: 24, borderRadius: 12, borderWidth: 2,
+    padding: 12, alignItems: "center", backgroundColor: "#fff",
+    marginBottom: 12, minHeight: 56, justifyContent: "center",
+  },
+  boardCalloutNum: { fontSize: 32, fontWeight: "900", lineHeight: 36 },
+  boardCalloutLabel: { color: "#6b7280", fontSize: 13, marginTop: 2 },
+  boardCalloutPrompt: { color: "#9ca3af", fontSize: 14 },
+
+  // Lane wrapper
+  laneWrapper: { paddingHorizontal: 8, gap: 0 },
+  boardEdgeLabels: {
+    flexDirection: "row", justifyContent: "space-between",
+    paddingHorizontal: 28, marginBottom: 2,
+  },
+  edgeLabel: { fontSize: 11, color: "#9ca3af", fontWeight: "600" },
+  laneRow: { flexDirection: "row", alignItems: "stretch" },
+  gutter: { width: 20, backgroundColor: "#d1d5db", borderRadius: 2 },
+
+  // The main lane pressable
+  laneSurface: {
+    flex: 1, height: 260, position: "relative", overflow: "hidden",
+    backgroundColor: "#c8a96e",
+    borderLeftWidth: 2, borderRightWidth: 2, borderColor: "#a0785a",
+  },
+
+  // Zones (absolutely positioned, stacked)
+  pinDeck: {
+    position: "absolute", top: 0, left: 0, right: 0, height: 48,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    alignItems: "center", justifyContent: "center",
+    borderBottomWidth: 1, borderColor: "rgba(0,0,0,0.15)",
+  },
+  midLane: {
+    position: "absolute", top: 48, left: 0, right: 0, height: 110,
+    backgroundColor: "rgba(0,0,0,0.04)",
   },
   arrowZone: {
-    position: "absolute", top: 28, left: 0, right: 0, height: 24,
-    backgroundColor: "rgba(253,230,138,0.4)",
+    position: "absolute", top: 158, left: 0, right: 0, height: 52,
+    backgroundColor: "rgba(253,230,138,0.35)",
     alignItems: "center", justifyContent: "center",
   },
-  pinZone: {
-    position: "absolute", top: 52, left: 0, right: 0, height: 28,
-    backgroundColor: "rgba(167,243,208,0.4)",
+  foulLine: {
+    position: "absolute", bottom: 0, left: 0, right: 0, height: 50,
+    backgroundColor: "rgba(0,0,0,0.08)",
+    borderTopWidth: 3, borderColor: "#ef4444",
     alignItems: "center", justifyContent: "center",
   },
-  zoneLabel: { fontSize: 9, color: "#9ca3af" },
-  boardMarker: {
-    position: "absolute",
-    width: 18, height: 18, borderRadius: 9,
-    alignItems: "center", justifyContent: "center",
-    marginLeft: -9,
-  },
-  boardMarkerText: { color: "#fff", fontSize: 9, fontWeight: "800" },
-  compactLegend: { flexDirection: "row", gap: 6, flexWrap: "wrap" },
-  legendPill: {
-    borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3,
-  },
-  legendPillText: { color: "#fff", fontSize: 11, fontWeight: "700" },
+  zoneText: { fontSize: 10, color: "rgba(0,0,0,0.35)", fontWeight: "600", letterSpacing: 0.5 },
+  foulLineText: { fontSize: 10, color: "#ef4444", fontWeight: "600", marginTop: 8 },
 
-  // Modal
-  modalContainer: { flex: 1 },
-  modalHeader: {
+  // Board columns overlay (non-interactive)
+  boardColumns: {
+    position: "absolute", top: 0, bottom: 0, left: 0, right: 0,
     flexDirection: "row",
+  },
+  boardColumn: {
+    flex: 1, borderRightWidth: 0.5,
+    borderColor: "rgba(0,0,0,0.08)",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 2,
   },
-  modalHeaderLeft: { flex: 1 },
-  modalTitleGroup: { flex: 3, alignItems: "center" },
-  modalTitle: { fontSize: 18, fontWeight: "900" },
-  modalCloseBtn: {
-    flex: 1, alignItems: "flex-end",
-    paddingVertical: 4, paddingHorizontal: 4,
-  },
-  modalCloseText: { color: "#6b7280", fontSize: 15, fontWeight: "600" },
-  modalHint: {
-    textAlign: "center", color: "#6b7280", fontSize: 13,
-    paddingHorizontal: 20, paddingVertical: 10, lineHeight: 18,
+  arrowColumn: { backgroundColor: "rgba(253,230,138,0.2)" },
+  arrowDot: {
+    position: "absolute", top: 166,
+    width: 5, height: 5, borderRadius: 2.5,
+    backgroundColor: "#b45309",
   },
 
-  // Lane orientation
-  laneOrientation: {
-    backgroundColor: "#eff6ff", marginHorizontal: 16, borderRadius: 8,
-    padding: 8, alignItems: "center", marginBottom: 6,
+  // Selected board vertical highlight line
+  selectedLine: {
+    position: "absolute", top: 0, bottom: 0, width: 3,
+    marginLeft: -1.5,
   },
-  orientationLabel: { fontSize: 13, fontWeight: "700", color: "#1e3a8a" },
-  orientationSub: { fontSize: 11, color: "#6b7280", marginTop: 2 },
 
-  // Board list
-  boardList: { paddingHorizontal: 16, paddingBottom: 32, gap: 4 },
-  boardRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    gap: 10,
+  // Tick labels row
+  tickRow: {
+    height: 20, position: "relative", marginTop: 4,
+    paddingHorizontal: 20,
   },
-  boardRowArrow: { borderColor: "#fde68a", backgroundColor: "#fffbeb" },
-  boardNumBox: { width: 32 },
-  boardRowNum: { fontSize: 20, fontWeight: "900", color: "#111827" },
-  boardRowNumSelected: { color: "#fff" },
-  boardIndicatorArea: { width: 18, alignItems: "center" },
-  arrowIndicator: {
-    width: 8, height: 8, borderRadius: 4, backgroundColor: "#d97706",
+  tickLabel: {
+    position: "absolute", fontSize: 10, color: "#6b7280",
+    transform: [{ translateX: -8 }],
   },
-  boardNote: { flex: 1, fontSize: 13, color: "#6b7280" },
-  boardNoteSelected: { color: "rgba(255,255,255,0.85)" },
-  checkmark: { color: "#fff", fontSize: 18, fontWeight: "900" },
+
+  // Quick-tap arrow section
+  quickSection: { marginTop: 16, paddingHorizontal: 16, gap: 8 },
+  quickLabel: { fontSize: 10, fontWeight: "700", color: "#9ca3af", letterSpacing: 0.8 },
+  quickRow: { flexDirection: "row", gap: 6 },
+  quickBtn: {
+    flex: 1, borderWidth: 2, borderRadius: 8,
+    paddingVertical: 8, alignItems: "center",
+  },
+  quickBtnNum: { fontSize: 15, fontWeight: "800", color: "#374151" },
+  quickBtnSub: { fontSize: 10, color: "#9ca3af", marginTop: 1 },
 });

@@ -12,11 +12,11 @@ const BAG_KEY = "pindex_ball_bag";
 export interface BallSpec {
   name: string;
   brand: string;
-  coverstock: string;
-  core: string;
-  rg: number;
-  diff: number;
-  finish: string;
+  coverstock: string | null;
+  core: string | null;
+  rg: number | null;
+  diff: number | null;
+  finish: string | null;
   length: string;
   backend: string;
   hook: string;
@@ -165,6 +165,10 @@ export default function BallBagScreen({ onBack }: Props) {
 
           <Text style={styles.recommended}>{result.recommended_for}</Text>
 
+          <Text style={styles.disclaimer}>
+            * RG/Diff shown as N/A when not verified. Descriptive specs (hook, length) are AI estimates.
+          </Text>
+
           <TouchableOpacity style={styles.addBtn} onPress={() => addToBag(result!)}>
             <Text style={styles.addBtnText}>+ Add to Bag</Text>
           </TouchableOpacity>
@@ -263,6 +267,7 @@ const styles = StyleSheet.create({
   specLabel: { fontSize: 10, color: "#9ca3af", textTransform: "uppercase", fontWeight: "600" },
   specValue: { fontSize: 13, color: "#111827", fontWeight: "700", marginTop: 2 },
   recommended: { fontSize: 13, color: "#374151", fontStyle: "italic", lineHeight: 18 },
+  disclaimer: { fontSize: 11, color: "#9ca3af", lineHeight: 16 },
   addBtn: {
     backgroundColor: "#1e3a8a", borderRadius: 12,
     padding: 12, alignItems: "center",
