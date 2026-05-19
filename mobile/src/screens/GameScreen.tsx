@@ -6,6 +6,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import PinDeck from "../components/PinDeck";
 import InfoButton from "../components/InfoModal";
+import LaneSelector from "../components/LaneSelector";
 import { logFrame } from "../api/client";
 
 const INFO = {
@@ -60,9 +61,10 @@ export default function GameScreen({ gameId, bowlerId, handStyle, onFinish }: Pr
 
   // Shot detail fields
   const [speed, setSpeed] = useState("");
-  const [startBoard, setStartBoard] = useState("");
-  const [targetBoard, setTargetBoard] = useState("");
-  const [impactBoard, setImpactBoard] = useState("");
+  const [startBoard, setStartBoard] = useState<number | null>(null);
+  const [targetBoard, setTargetBoard] = useState<number | null>(null);
+  const [impactBoard, setImpactBoard] = useState<number | null>(null);
+  const [activeBoardType, setActiveBoardType] = useState<"start" | "target" | "impact" | null>("start");
   const [hook, setHook] = useState(5);
 
   // 10th frame: did ball 2 knock all remaining pins?
@@ -172,7 +174,7 @@ export default function GameScreen({ gameId, bowlerId, handStyle, onFinish }: Pr
         ball2_pins: ball2Knocked,
         ball3_pins: ball3Knocked,
         ball1_speed: speed ? parseFloat(speed) : undefined,
-        ball1_arrow: targetBoard ? parseInt(targetBoard) : undefined,
+        ball1_arrow: targetBoard ?? undefined,
         ball1_hook: hook,
         hand_style: handStyle,
       });
@@ -197,9 +199,10 @@ export default function GameScreen({ gameId, bowlerId, handStyle, onFinish }: Pr
     setStandingBall2(new Set());
     setStandingBall3(new Set());
     setSpeed("");
-    setStartBoard("");
-    setTargetBoard("");
-    setImpactBoard("");
+    setStartBoard(null);
+    setTargetBoard(null);
+    setImpactBoard(null);
+    setActiveBoardType("start");
     setHook(5);
   }
 
@@ -276,15 +279,20 @@ export default function GameScreen({ gameId, bowlerId, handStyle, onFinish }: Pr
         disabled={loading}
       />
 
-      {/* Board tracking */}
-      <View style={styles.boardRow}>
-        <BoardInput label="Start" value={startBoard} onChange={setStartBoard}
-          infoTitle="Start Board" infoContent={INFO.startBoard} />
-        <BoardInput label="Target" value={targetBoard} onChange={setTargetBoard}
-          infoTitle="Target Board" infoContent={INFO.targetBoard} />
-        <BoardInput label="Impact" value={impactBoard} onChange={setImpactBoard}
-          infoTitle="Impact Board" infoContent={INFO.impactBoard} />
-      </View>
+      {/* Visual board selector */}
+      <LaneSelector
+        startBoard={startBoard}
+        targetBoard={targetBoard}
+        impactBoard={impactBoard}
+        activeType={activeBoardType}
+        onSetActive={setActiveBoardType}
+        onSelect={(type, board) => {
+          if (type === "start") setStartBoard(board);
+          else if (type === "target") setTargetBoard(board);
+          else setImpactBoard(board);
+        }}
+      />
+
 
       {/* Speed + Hook (ball 1 only) */}
       {ball === 1 && (
@@ -343,28 +351,6 @@ export default function GameScreen({ gameId, bowlerId, handStyle, onFinish }: Pr
   );
 }
 
-function BoardInput({ label, value, onChange, infoTitle, infoContent }: {
-  label: string; value: string; onChange: (v: string) => void;
-  infoTitle: string; infoContent: string;
-}) {
-  return (
-    <View style={styles.boardField}>
-      <View style={styles.labelRow}>
-        <Text style={styles.boardLabel}>{label}</Text>
-        <InfoButton title={infoTitle} content={infoContent} />
-      </View>
-      <TextInput
-        style={styles.boardInput}
-        placeholder="—"
-        keyboardType="number-pad"
-        value={value}
-        onChangeText={onChange}
-        placeholderTextColor="#9ca3af"
-        maxLength={2}
-      />
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   container: { padding: 16, backgroundColor: "#f9fafb", gap: 14 },
@@ -394,14 +380,6 @@ const styles = StyleSheet.create({
   spareBtnText: { color: "#fff", fontWeight: "900", fontSize: 18, letterSpacing: 1 },
   deckLabel: { color: "#6b7280", fontSize: 13, fontWeight: "500" },
   labelRow: { flexDirection: "row", alignItems: "center", gap: 5, justifyContent: "center" },
-  boardRow: { flexDirection: "row", gap: 8 },
-  boardField: { flex: 1, gap: 4 },
-  boardLabel: { fontSize: 11, fontWeight: "600", color: "#6b7280", textTransform: "uppercase" },
-  boardInput: {
-    backgroundColor: "#fff", borderRadius: 10, padding: 10,
-    fontSize: 18, fontWeight: "700", borderWidth: 1,
-    borderColor: "#e5e7eb", color: "#111827", textAlign: "center",
-  },
   shotCard: { backgroundColor: "#fff", borderRadius: 14, padding: 14, borderWidth: 1, borderColor: "#e5e7eb" },
   shotRow: { flexDirection: "row", gap: 12 },
   shotField: { flex: 1, gap: 6 },
