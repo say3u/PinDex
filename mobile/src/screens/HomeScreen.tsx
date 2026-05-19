@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, StatusBar,
+  ScrollView, StatusBar, Image,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-icons";
@@ -48,10 +48,11 @@ export default function HomeScreen() {
 
         {/* ── Logo ── */}
         <View style={styles.logo}>
-          <View style={styles.logoIcon}>
-            <MaterialCommunityIcons name="bowling" size={22} color="#3b82f6" />
-          </View>
-          <Text style={styles.logoText}>PinDex</Text>
+          <Image
+            source={require("../../assets/logo.png")}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
         </View>
 
         {/* ── Hero CTA ── */}
@@ -149,14 +150,8 @@ const styles = StyleSheet.create({
   scroll: { padding: 20, gap: 20, paddingBottom: 48 },
 
   // Logo
-  logo: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 4 },
-  logoIcon: {
-    width: 36, height: 36, borderRadius: 10,
-    backgroundColor: "#0f172a",
-    borderWidth: 1, borderColor: "#1e3a8a",
-    alignItems: "center", justifyContent: "center",
-  },
-  logoText: { fontSize: 26, fontWeight: "900", color: "#f8fafc", letterSpacing: -0.5 },
+  logo: { alignItems: "flex-start", marginBottom: 4 },
+  logoImage: { height: 60, width: 200 },
 
   // Hero CTA
   heroBlock: { gap: 10 },

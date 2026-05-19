@@ -39,14 +39,22 @@ const HOOK_COLORS: Record<string, string> = {
 export async function loadBag(): Promise<BallSpec[]> {
   try {
     const raw = await AsyncStorage.getItem(BAG_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed;
+  } catch (e) {
+    console.warn("loadBag: failed to load ball bag", e);
     return [];
   }
 }
 
 async function saveBag(bag: BallSpec[]) {
-  await AsyncStorage.setItem(BAG_KEY, JSON.stringify(bag));
+  try {
+    await AsyncStorage.setItem(BAG_KEY, JSON.stringify(bag));
+  } catch (e) {
+    Alert.alert("Save Error", "Could not save your ball bag. Check device storage.");
+  }
 }
 
 export default function BallBagScreen({ onBack }: Props) {

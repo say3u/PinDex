@@ -11,7 +11,7 @@ import LaneSelector from "../components/LaneSelector";
 import RecommenderModal from "../components/RecommenderModal";
 import CoachModal from "../components/CoachModal";
 import { loadBag, BallSpec } from "./BallBagScreen";
-import { logFrame } from "../api/client";
+import { logFrame, deleteFrame } from "../api/client";
 
 const INFO = {
   startBoard: "The board you stand on at the approach. Boards are numbered 1–39, right to left for right-handers. Most house shot players start around board 15–25.",
@@ -29,6 +29,17 @@ const knockedToBitmask = (standing: Set<number>, available: Set<number>): number
     .reduce((acc, p) => acc | (1 << (p - 1)), 0);
 
 interface Frame { frame: number; isStrike: boolean; isSpare: boolean; pinsLeft: number; }
+interface Snapshot {
+  frame: number;
+  strikes: number;
+  spares: number;
+  opens: number;
+  speeds: number[];
+  hooks: number[];
+  leaves: string[];
+  lastFrames: string[];
+  frames: Frame[];
+}
 interface Props { gameId: string; bowlerId: string; handStyle: string; oilPattern: string; onFinish: () => void; }
 
 export default function GameScreen({ gameId, bowlerId, handStyle, oilPattern, onFinish }: Props) {
@@ -54,6 +65,7 @@ export default function GameScreen({ gameId, bowlerId, handStyle, oilPattern, on
   const [standingBall3, setStandingBall3] = useState<Set<number>>(new Set());
   const [frames, setFrames] = useState<Frame[]>([]);
   const [loading, setLoading] = useState(false);
+  const [lastSnapshot, setLastSnapshot] = useState<Snapshot | null>(null);
 
   const [speed, setSpeed] = useState("");
   const [hook, setHook] = useState(5);
@@ -86,13 +98,25 @@ export default function GameScreen({ gameId, bowlerId, handStyle, oilPattern, on
     const isStrike = b1Standing.size === 0;
 
     if (ball === 1) {
-      if (isStrike && currentFrame < 10) { await submit(b1Standing, undefined, undefined, true, false); advance(); return; }
+      if (isStrike && currentFrame < 10) {
+        const snap: Snapshot = { frame: currentFrame, strikes, spares, opens, speeds: [...speeds], hooks: [...hooks], leaves: [...leaves], lastFrames: [...lastFrames], frames: [...frames] };
+        await submit(b1Standing, undefined, undefined, true, false);
+        advance();
+        setLastSnapshot(snap);
+        return;
+      }
       setStandingBall2(new Set(b1Standing)); setBall(2); return;
     }
     if (ball === 2) {
       const b2Standing = forceSpare ? new Set<number>() : standingBall2;
       const isSpare = !isStrike && b2Standing.size === 0;
-      if (currentFrame < 10) { await submit(b1Standing, b2Standing, undefined, false, isSpare); advance(); return; }
+      if (currentFrame < 10) {
+        const snap: Snapshot = { frame: currentFrame, strikes, spares, opens, speeds: [...speeds], hooks: [...hooks], leaves: [...leaves], lastFrames: [...lastFrames], frames: [...frames] };
+        await submit(b1Standing, b2Standing, undefined, false, isSpare);
+        advance();
+        setLastSnapshot(snap);
+        return;
+      }
       if (isStrike || b2Standing.size === 0) { setStandingBall3(new Set()); setBall(3); return; }
       await submit(b1Standing, b2Standing, undefined, false, false); onFinish(); return;
     }
@@ -141,6 +165,37 @@ export default function GameScreen({ gameId, bowlerId, handStyle, oilPattern, on
     ]);
   }
 
+  async function undoFrame() {
+    if (!lastSnapshot) return;
+    const snap = lastSnapshot;
+    try {
+      await deleteFrame(gameId, snap.frame);
+    } catch {
+      Alert.alert("Undo Error", "Could not delete the last frame from the server.");
+      return;
+    }
+    setCurrentFrame(snap.frame);
+    setStrikes(snap.strikes);
+    setSpares(snap.spares);
+    setOpens(snap.opens);
+    setSpeeds(snap.speeds);
+    setHooks(snap.hooks);
+    setLeaves(snap.leaves);
+    setLastFrames(snap.lastFrames);
+    setFrames(snap.frames);
+    setStandingBall1(new Set());
+    setStandingBall2(new Set());
+    setStandingBall3(new Set());
+    setSpeed("");
+    setStartBoard(null);
+    setTargetBoard(null);
+    setImpactBoard(null);
+    setActiveBoardType("start");
+    setHook(5);
+    setBall(1);
+    setLastSnapshot(null);
+  }
+
   const avgSpeed = speeds.length ? speeds.reduce((a, b) => a + b) / speeds.length : undefined;
   const avgHook = hooks.length ? hooks.reduce((a, b) => a + b) / hooks.length : undefined;
   const isStrikeSituation = ball === 1 && currentStanding.size === 0;
@@ -162,6 +217,11 @@ export default function GameScreen({ gameId, bowlerId, handStyle, oilPattern, on
         </View>
 
         <View style={styles.headerActions}>
+          {lastSnapshot !== null && (
+            <TouchableOpacity onPress={undoFrame} style={styles.iconBtn}>
+              <Ionicons name="arrow-undo" size={19} color="#64748b" />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity onPress={() => setShowCoach(true)} style={styles.iconBtn}>
             <MaterialCommunityIcons name="target" size={19} color="#64748b" />
           </TouchableOpacity>

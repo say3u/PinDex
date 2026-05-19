@@ -42,6 +42,9 @@ export const getCoaching = (payload: {
   last_frames: string[];
 }) => api.post("/coach/", payload).then((r) => r.data);
 
+export const deleteFrame = (gameId: string, frameNumber: number) =>
+  api.delete(`/frames/${gameId}/${frameNumber}`).then((r) => r.data);
+
 export const recommendBall = (payload: {
   balls: any[];
   strike_rate: number;

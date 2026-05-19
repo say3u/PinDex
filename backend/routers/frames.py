@@ -79,6 +79,13 @@ def log_frame(body: FrameCreate):
     return result.data[0]
 
 
+@router.delete("/{game_id}/{frame_number}")
+def delete_frame(game_id: str, frame_number: int):
+    db = get_db()
+    db.table("frames").delete().eq("game_id", game_id).eq("frame_number", frame_number).execute()
+    return {"ok": True}
+
+
 @router.get("/game/{game_id}")
 def get_game_frames(game_id: str):
     db = get_db()

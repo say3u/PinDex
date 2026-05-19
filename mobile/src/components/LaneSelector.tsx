@@ -302,32 +302,33 @@ const styles = StyleSheet.create({
   textWhiteFaint: { color: "rgba(255,255,255,0.8)" },
 
   // Modal shell
-  modalRoot: { flex: 1, backgroundColor: "#f9fafb" },
+  modalRoot: { flex: 1, backgroundColor: "#0a0f1e" },
   modalHeader: {
     flexDirection: "row", alignItems: "center",
     paddingHorizontal: 16, paddingVertical: 12,
     borderBottomWidth: 2, gap: 8,
+    backgroundColor: "#0a0f1e",
   },
   cancelBtn: { flex: 1 },
-  cancelText: { color: "#6b7280", fontSize: 15 },
+  cancelText: { color: "#64748b", fontSize: 15 },
   modalTitle: { flex: 2, textAlign: "center", fontSize: 17, fontWeight: "800" },
   doneBtn: { flex: 1, borderRadius: 8, paddingVertical: 6, alignItems: "center" },
   doneText: { color: "#fff", fontWeight: "700", fontSize: 14 },
 
   hintText: {
-    textAlign: "center", color: "#6b7280", fontSize: 13,
+    textAlign: "center", color: "#64748b", fontSize: 13,
     paddingHorizontal: 24, paddingVertical: 10, lineHeight: 18,
   },
 
   // Board callout
   boardCallout: {
     marginHorizontal: 24, borderRadius: 12, borderWidth: 2,
-    padding: 12, alignItems: "center", backgroundColor: "#fff",
+    padding: 12, alignItems: "center", backgroundColor: "#111827",
     marginBottom: 12, minHeight: 56, justifyContent: "center",
   },
   boardCalloutNum: { fontSize: 32, fontWeight: "900", lineHeight: 36 },
-  boardCalloutLabel: { color: "#6b7280", fontSize: 13, marginTop: 2 },
-  boardCalloutPrompt: { color: "#9ca3af", fontSize: 14 },
+  boardCalloutLabel: { color: "#64748b", fontSize: 13, marginTop: 2 },
+  boardCalloutPrompt: { color: "#475569", fontSize: 14 },
 
   // Lane wrapper
   laneWrapper: { paddingHorizontal: 8, gap: 0 },
@@ -335,9 +336,9 @@ const styles = StyleSheet.create({
     flexDirection: "row", justifyContent: "space-between",
     paddingHorizontal: 28, marginBottom: 2,
   },
-  edgeLabel: { fontSize: 11, color: "#9ca3af", fontWeight: "600" },
+  edgeLabel: { fontSize: 11, color: "#475569", fontWeight: "600" },
   laneRow: { flexDirection: "row", alignItems: "stretch" },
-  gutter: { width: 20, backgroundColor: "#d1d5db", borderRadius: 2 },
+  gutter: { width: 20, backgroundColor: "#1f2937", borderRadius: 2 },
 
   // The main lane pressable
   laneSurface: {
@@ -400,18 +401,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   tickLabel: {
-    position: "absolute", fontSize: 10, color: "#6b7280",
+    position: "absolute", fontSize: 10, color: "#475569",
     transform: [{ translateX: -8 }],
   },
 
   // Quick-tap arrow section
   quickSection: { marginTop: 16, paddingHorizontal: 16, gap: 8 },
-  quickLabel: { fontSize: 10, fontWeight: "700", color: "#9ca3af", letterSpacing: 0.8 },
+  quickLabel: { fontSize: 10, fontWeight: "700", color: "#475569", letterSpacing: 0.8 },
   quickRow: { flexDirection: "row", gap: 6 },
   quickBtn: {
     flex: 1, borderWidth: 2, borderRadius: 8,
     paddingVertical: 8, alignItems: "center",
+    backgroundColor: "#111827",
   },
-  quickBtnNum: { fontSize: 15, fontWeight: "800", color: "#374151" },
-  quickBtnSub: { fontSize: 10, color: "#9ca3af", marginTop: 1 },
+  quickBtnNum: { fontSize: 15, fontWeight: "800", color: "#f1f5f9" },
+  quickBtnSub: { fontSize: 10, color: "#475569", marginTop: 1 },
 });
