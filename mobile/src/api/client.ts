@@ -27,6 +27,21 @@ export const getSummary = (bowlerId: string) =>
 export const lookupBall = (name: string) =>
   api.post("/balls/lookup", { name }).then((r) => r.data);
 
+export const getCoaching = (payload: {
+  frames_played: number;
+  strikes: number;
+  spares: number;
+  opens: number;
+  recent_leaves: string[];
+  spare_conversion_rate: number;
+  avg_speed?: number;
+  avg_hook?: number;
+  oil_pattern: string;
+  ball_name?: string;
+  hand_style?: string;
+  last_frames: string[];
+}) => api.post("/coach/", payload).then((r) => r.data);
+
 export const recommendBall = (payload: {
   balls: any[];
   strike_rate: number;
