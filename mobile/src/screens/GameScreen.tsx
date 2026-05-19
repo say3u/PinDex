@@ -1,31 +1,31 @@
 import React, { useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Alert,
-  ScrollView,
-  ActivityIndicator,
-  TextInput,
+  View, Text, StyleSheet, TouchableOpacity,
+  Alert, ScrollView, ActivityIndicator, TextInput,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import PinDeck from "../components/PinDeck";
 import { logFrame } from "../api/client";
 
-// Convert set of knocked pins to bitmask (pin 1 = bit 0)
-const toBitmask = (pins: Set<number>) =>
-  [...pins].reduce((acc, p) => acc | (1 << (p - 1)), 0);
-
 const ALL_PINS = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+
+// standing pins bitmask → Set
+const bitmaskToSet = (mask: number): Set<number> => {
+  const s = new Set<number>();
+  for (let i = 0; i < 10; i++) if (mask & (1 << i)) s.add(i + 1);
+  return s;
+};
+
+// Set of KNOCKED pins → bitmask
+const knockedToBitmask = (standing: Set<number>, available: Set<number>): number =>
+  [...available].filter((p) => !standing.has(p))
+    .reduce((acc, p) => acc | (1 << (p - 1)), 0);
 
 interface Frame {
   frame: number;
-  ball1: Set<number>;
-  ball2?: Set<number>;
-  ball3?: Set<number>;
   isStrike: boolean;
   isSpare: boolean;
+  pinsLeft: number; // count of pins left after ball 1
 }
 
 interface Props {
@@ -39,110 +39,140 @@ export default function GameScreen({ gameId, bowlerId, handStyle, onFinish }: Pr
   const insets = useSafeAreaInsets();
   const [currentFrame, setCurrentFrame] = useState(1);
   const [ball, setBall] = useState<1 | 2 | 3>(1);
-  const [ball1Knocked, setBall1Knocked] = useState<Set<number>>(new Set());
-  const [ball2Knocked, setBall2Knocked] = useState<Set<number>>(new Set());
-  const [ball3Knocked, setBall3Knocked] = useState<Set<number>>(new Set());
+
+  // Pins still standing — user taps to toggle
+  const [standingBall1, setStandingBall1] = useState<Set<number>>(new Set());
+  const [standingBall2, setStandingBall2] = useState<Set<number>>(new Set());
+  const [standingBall3, setStandingBall3] = useState<Set<number>>(new Set());
+
   const [frames, setFrames] = useState<Frame[]>([]);
   const [loading, setLoading] = useState(false);
+
   // Shot detail fields
   const [speed, setSpeed] = useState("");
-  const [arrow, setArrow] = useState("");
+  const [startBoard, setStartBoard] = useState("");
+  const [targetBoard, setTargetBoard] = useState("");
+  const [impactBoard, setImpactBoard] = useState("");
   const [hook, setHook] = useState(5);
 
-  const ball2Strike = currentFrame === 10 && ball2Knocked.size === 10;
+  // 10th frame: did ball 2 knock all remaining pins?
+  const ball1StandingAfter = standingBall1; // pins left after ball 1
+  const ball2IsStrike10 = currentFrame === 10 && standingBall2.size === 0 && ball1StandingAfter.size === 0;
+  const ball2Spare10 = currentFrame === 10 && standingBall2.size === 0 && ball1StandingAfter.size > 0;
 
-  // In 10th frame, ball 3 available pins:
-  // - if ball 2 was a strike, reset all 10 pins
-  // - otherwise only pins left standing after ball 2
-  const availablePins =
-    ball === 1 ? ALL_PINS
-    : ball === 2 ? new Set([...ALL_PINS].filter((p) => !ball1Knocked.has(p)))
-    : ball2Strike ? ALL_PINS
-    : new Set([...ALL_PINS].filter((p) => !ball2Knocked.has(p)));
+  // Available pins for ball 2: only what was left standing after ball 1
+  // Exception: 10th frame after a strike, all pins reset
+  const ball2Available = currentFrame === 10 && standingBall1.size === 0
+    ? ALL_PINS
+    : standingBall1;
 
-  const currentKnocked =
-    ball === 1 ? ball1Knocked : ball === 2 ? ball2Knocked : ball3Knocked;
-  const setCurrentKnocked =
-    ball === 1 ? setBall1Knocked : ball === 2 ? setBall2Knocked : setBall3Knocked;
+  // Available for ball 3 in 10th: if ball 2 was a strike, all pins; else what's left after ball 2
+  const ball3Available = ball2IsStrike10 ? ALL_PINS : standingBall2;
+
+  const currentStanding =
+    ball === 1 ? standingBall1 : ball === 2 ? standingBall2 : standingBall3;
+  const currentAvailable =
+    ball === 1 ? ALL_PINS : ball === 2 ? ball2Available : ball3Available;
+  const setCurrentStanding =
+    ball === 1 ? setStandingBall1 : ball === 2 ? setStandingBall2 : setStandingBall3;
 
   function togglePin(pin: number) {
-    if (!availablePins.has(pin)) return;
-    setCurrentKnocked((prev) => {
+    setCurrentStanding((prev) => {
       const next = new Set(prev);
       next.has(pin) ? next.delete(pin) : next.add(pin);
       return next;
     });
   }
 
-  async function confirmBall() {
-    const ball1Strike = ball1Knocked.size === 10;
-    const isSpare = ball === 2 && !ball1Strike &&
-      (ball1Knocked.size + ball2Knocked.size) === 10;
+  function markStrike() {
+    // Ball 1 strike: no pins standing
+    setStandingBall1(new Set());
+    handleConfirm(true);
+  }
 
-    // Frames 1-9
-    if (currentFrame < 10) {
-      if (ball === 1 && ball1Strike) {
-        await submitFrame(ball1Knocked, undefined, undefined, true, false);
-        advance();
-        return;
-      }
-      if (ball === 2) {
-        await submitFrame(ball1Knocked, ball2Knocked, undefined, false, isSpare);
-        advance();
-        return;
-      }
-      setBall(2);
-      return;
-    }
+  function markSpare() {
+    // Ball 2 spare: clear all remaining standing
+    setStandingBall2(new Set());
+    handleConfirm(false, true);
+  }
 
-    // 10th frame
+  async function handleConfirm(forceStrike = false, forceSpare = false) {
+    const b1Standing = forceStrike ? new Set<number>() : standingBall1;
+    const isStrike = b1Standing.size === 0;
+
     if (ball === 1) {
-      setBall(2);
-      setBall2Knocked(new Set());
-      return;
-    }
-    if (ball === 2) {
-      const needsBall3 = ball1Strike || isSpare || ball2Knocked.size === 10;
-      if (needsBall3) {
-        setBall(3);
-        setBall3Knocked(new Set());
+      if (isStrike && currentFrame < 10) {
+        await submit(b1Standing, undefined, undefined, true, false);
+        advance();
         return;
       }
-      await submitFrame(ball1Knocked, ball2Knocked, undefined, false, false);
+      // Move to ball 2
+      setStandingBall2(new Set(b1Standing)); // start ball 2 with same pins standing
+      setBall(2);
+      return;
+    }
+
+    if (ball === 2) {
+      const b2Standing = forceSpare ? new Set<number>() : standingBall2;
+      const isSpare = !isStrike && b2Standing.size === 0;
+
+      if (currentFrame < 10) {
+        await submit(b1Standing, b2Standing, undefined, false, isSpare);
+        advance();
+        return;
+      }
+
+      // 10th frame ball 2
+      const needsBall3 = isStrike || b2Standing.size === 0;
+      if (needsBall3) {
+        setStandingBall3(new Set()); // reset for ball 3
+        setBall(3);
+        return;
+      }
+      await submit(b1Standing, b2Standing, undefined, false, false);
       onFinish();
       return;
     }
+
     if (ball === 3) {
-      await submitFrame(ball1Knocked, ball2Knocked, ball3Knocked, ball1Strike, isSpare);
+      const b2Standing = standingBall2;
+      const b3Standing = standingBall3;
+      const isSpare = !isStrike && b2Standing.size === 0;
+      await submit(b1Standing, b2Standing, b3Standing, isStrike, isSpare);
       onFinish();
       return;
     }
   }
 
-  async function submitFrame(
-    b1: Set<number>,
-    b2: Set<number> | undefined,
-    b3: Set<number> | undefined,
-    strike: boolean,
-    spare: boolean
+  async function submit(
+    b1: Set<number>, b2: Set<number> | undefined,
+    b3: Set<number> | undefined, strike: boolean, spare: boolean
   ) {
     setLoading(true);
     try {
+      const ball1Knocked = knockedToBitmask(b1, ALL_PINS);
+      const ball2Knocked = b2 !== undefined ? knockedToBitmask(b2, ball2Available) : undefined;
+      const ball3Knocked = b3 !== undefined ? knockedToBitmask(b3, ball3Available) : undefined;
+      const leaveMask = [...b1].reduce((acc, p) => acc | (1 << (p - 1)), 0);
+
       await logFrame({
         game_id: gameId,
         frame_number: currentFrame,
-        ball1_pins: toBitmask(b1),
-        ball2_pins: b2 !== undefined ? toBitmask(b2) : undefined,
-        ball3_pins: b3 !== undefined ? toBitmask(b3) : undefined,
+        ball1_pins: ball1Knocked,
+        ball2_pins: ball2Knocked,
+        ball3_pins: ball3Knocked,
         ball1_speed: speed ? parseFloat(speed) : undefined,
-        ball1_arrow: arrow ? parseInt(arrow) : undefined,
+        ball1_arrow: targetBoard ? parseInt(targetBoard) : undefined,
         ball1_hook: hook,
         hand_style: handStyle,
       });
-      setFrames((prev) => [
-        ...prev,
-        { frame: currentFrame, ball1: b1, ball2: b2, ball3: b3, isStrike: strike, isSpare: spare },
-      ]);
+
+      setFrames((prev) => [...prev, {
+        frame: currentFrame,
+        isStrike: strike,
+        isSpare: spare,
+        pinsLeft: b1.size,
+      }]);
     } catch {
       Alert.alert("Error", "Failed to save frame. Check your connection.");
     } finally {
@@ -153,25 +183,49 @@ export default function GameScreen({ gameId, bowlerId, handStyle, onFinish }: Pr
   function advance() {
     setCurrentFrame((f) => f + 1);
     setBall(1);
-    setBall1Knocked(new Set());
-    setBall2Knocked(new Set());
+    setStandingBall1(new Set());
+    setStandingBall2(new Set());
+    setStandingBall3(new Set());
     setSpeed("");
-    setArrow("");
+    setStartBoard("");
+    setTargetBoard("");
+    setImpactBoard("");
     setHook(5);
+  }
+
+  function confirmExit() {
+    Alert.alert(
+      "Exit Game",
+      "Your progress will be lost. Are you sure?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Exit", style: "destructive", onPress: onFinish },
+      ]
+    );
   }
 
   function frameLabel(f: Frame) {
     if (f.isStrike) return "X";
-    if (f.isSpare) return `${f.ball1.size} /`;
-    return `${f.ball1.size} ${f.ball2?.size ?? "-"}`;
+    if (f.isSpare) return "/";
+    return `${10 - f.pinsLeft}`;
   }
 
+  const isStrikeSituation = ball === 1 && currentStanding.size === 0;
+  const isSpareSituation = ball === 2 && currentStanding.size === 0;
+
   return (
-    <ScrollView contentContainerStyle={[styles.container, { paddingTop: insets.top + 16 }]}>
-      <Text style={styles.title}>Frame {currentFrame} — Ball {ball}</Text>
+    <ScrollView contentContainerStyle={[styles.container, { paddingTop: insets.top + 8 }]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={confirmExit} style={styles.exitBtn}>
+          <Text style={styles.exitText}>✕ Exit</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>Frame {currentFrame} · Ball {ball}</Text>
+        <View style={{ width: 60 }} />
+      </View>
 
       {/* Scorecard */}
-      <ScrollView horizontal style={styles.scorecard}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scorecard}>
         {frames.map((f) => (
           <View key={f.frame} style={styles.frameBox}>
             <Text style={styles.frameNum}>{f.frame}</Text>
@@ -180,26 +234,45 @@ export default function GameScreen({ gameId, bowlerId, handStyle, onFinish }: Pr
         ))}
         <View style={[styles.frameBox, styles.activeFrame]}>
           <Text style={styles.frameNum}>{currentFrame}</Text>
-          <Text style={styles.frameScore}>•</Text>
+          <Text style={styles.frameScore}>·</Text>
         </View>
       </ScrollView>
 
+      {/* Strike / Spare quick buttons */}
+      <View style={styles.quickRow}>
+        {ball === 1 && (
+          <TouchableOpacity style={styles.strikeBtn} onPress={markStrike} disabled={loading}>
+            <Text style={styles.strikeBtnText}>STRIKE</Text>
+          </TouchableOpacity>
+        )}
+        {ball === 2 && currentStanding.size === 0 && (
+          <TouchableOpacity style={styles.spareBtn} onPress={markSpare} disabled={loading}>
+            <Text style={styles.spareBtnText}>SPARE</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
       {/* Pin deck */}
+      <Text style={styles.deckLabel}>
+        {ball === 1 ? "Tap pins LEFT STANDING" : "Tap remaining pins LEFT"}
+      </Text>
       <PinDeck
-        knocked={currentKnocked}
+        standing={currentStanding}
+        available={currentAvailable}
         onToggle={togglePin}
         disabled={loading}
       />
 
-      <Text style={styles.hint}>
-        {ball === 1 ? "Tap pins knocked on ball 1"
-          : ball === 2 ? "Tap additional pins knocked on ball 2"
-          : "Tap pins knocked on ball 3"}
-      </Text>
+      {/* Board tracking */}
+      <View style={styles.boardRow}>
+        <BoardInput label="Start Board" value={startBoard} onChange={setStartBoard} />
+        <BoardInput label="Target Board" value={targetBoard} onChange={setTargetBoard} />
+        <BoardInput label="Impact Board" value={impactBoard} onChange={setImpactBoard} />
+      </View>
 
-      {/* Shot details — only on ball 1 */}
+      {/* Speed + Hook (ball 1 only) */}
       {ball === 1 && (
-        <View style={styles.shotDetails}>
+        <View style={styles.shotCard}>
           <View style={styles.shotRow}>
             <View style={styles.shotField}>
               <Text style={styles.shotLabel}>Speed (mph)</Text>
@@ -213,83 +286,108 @@ export default function GameScreen({ gameId, bowlerId, handStyle, onFinish }: Pr
               />
             </View>
             <View style={styles.shotField}>
-              <Text style={styles.shotLabel}>Arrow (1-7)</Text>
-              <TextInput
-                style={styles.shotInput}
-                placeholder="3"
-                keyboardType="number-pad"
-                value={arrow}
-                onChangeText={setArrow}
-                placeholderTextColor="#9ca3af"
-              />
-            </View>
-          </View>
-          <View>
-            <Text style={styles.shotLabel}>Hook Amount: {hook}/10</Text>
-            <View style={styles.hookRow}>
-              {[1,2,3,4,5,6,7,8,9,10].map((v) => (
-                <TouchableOpacity
-                  key={v}
-                  onPress={() => setHook(v)}
-                  style={[styles.hookDot, hook >= v && styles.hookDotActive]}
-                />
-              ))}
+              <Text style={styles.shotLabel}>Hook: {hook}/10</Text>
+              <View style={styles.hookRow}>
+                {[1,2,3,4,5,6,7,8,9,10].map((v) => (
+                  <TouchableOpacity
+                    key={v}
+                    onPress={() => setHook(v)}
+                    style={[styles.hookDot, hook >= v && styles.hookDotActive]}
+                  />
+                ))}
+              </View>
             </View>
           </View>
         </View>
       )}
 
+      {/* Confirm button */}
       <TouchableOpacity
-        style={[styles.btn, loading && styles.btnDisabled]}
-        onPress={confirmBall}
+        style={[styles.confirmBtn, loading && styles.btnDisabled]}
+        onPress={() => handleConfirm()}
         disabled={loading}
       >
-        {loading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.btnText}>
-            {currentKnocked.size === 10 ? "STRIKE!" : "Confirm"}
-          </Text>
-        )}
+        {loading
+          ? <ActivityIndicator color="#fff" />
+          : <Text style={styles.confirmBtnText}>
+              {isStrikeSituation ? "STRIKE ✓"
+                : isSpareSituation ? "SPARE ✓"
+                : ball < 3 ? "Next Ball"
+                : "Finish Game"}
+            </Text>
+        }
       </TouchableOpacity>
     </ScrollView>
   );
 }
 
+function BoardInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <View style={styles.boardField}>
+      <Text style={styles.boardLabel}>{label}</Text>
+      <TextInput
+        style={styles.boardInput}
+        placeholder="—"
+        keyboardType="number-pad"
+        value={value}
+        onChangeText={onChange}
+        placeholderTextColor="#9ca3af"
+        maxLength={2}
+      />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: { padding: 24, alignItems: "center", gap: 24 },
-  title: { fontSize: 22, fontWeight: "700", color: "#111827" },
+  container: { padding: 16, backgroundColor: "#f9fafb", gap: 14 },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  exitBtn: { padding: 8 },
+  exitText: { color: "#ef4444", fontWeight: "600", fontSize: 14 },
+  title: { fontSize: 18, fontWeight: "800", color: "#1e3a8a" },
   scorecard: { flexDirection: "row" },
   frameBox: {
-    width: 48,
-    height: 56,
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 4,
-    marginRight: 4,
+    width: 44, height: 52, borderWidth: 1, borderColor: "#d1d5db",
+    alignItems: "center", justifyContent: "center",
+    borderRadius: 6, marginRight: 4, backgroundColor: "#fff",
   },
-  activeFrame: { borderColor: "#2563eb", backgroundColor: "#eff6ff" },
+  activeFrame: { borderColor: "#1e3a8a", backgroundColor: "#eff6ff" },
   frameNum: { fontSize: 10, color: "#6b7280" },
-  frameScore: { fontSize: 14, fontWeight: "700", color: "#111827" },
-  hint: { color: "#6b7280", fontSize: 13, textAlign: "center" },
-  btn: {
-    backgroundColor: "#2563eb",
-    paddingHorizontal: 40,
-    paddingVertical: 14,
-    borderRadius: 12,
-    width: "100%",
-    alignItems: "center",
+  frameScore: { fontSize: 15, fontWeight: "800", color: "#111827" },
+  quickRow: { alignItems: "center" },
+  strikeBtn: {
+    backgroundColor: "#1e3a8a", paddingHorizontal: 40, paddingVertical: 12,
+    borderRadius: 30, width: "100%", alignItems: "center",
+  },
+  strikeBtnText: { color: "#fff", fontWeight: "900", fontSize: 18, letterSpacing: 1 },
+  spareBtn: {
+    backgroundColor: "#059669", paddingHorizontal: 40, paddingVertical: 12,
+    borderRadius: 30, width: "100%", alignItems: "center",
+  },
+  spareBtnText: { color: "#fff", fontWeight: "900", fontSize: 18, letterSpacing: 1 },
+  deckLabel: { textAlign: "center", color: "#6b7280", fontSize: 13, fontWeight: "500" },
+  boardRow: { flexDirection: "row", gap: 8 },
+  boardField: { flex: 1, gap: 4 },
+  boardLabel: { fontSize: 11, fontWeight: "600", color: "#6b7280", textTransform: "uppercase" },
+  boardInput: {
+    backgroundColor: "#fff", borderRadius: 10, padding: 10,
+    fontSize: 18, fontWeight: "700", borderWidth: 1,
+    borderColor: "#e5e7eb", color: "#111827", textAlign: "center",
+  },
+  shotCard: { backgroundColor: "#fff", borderRadius: 14, padding: 14, borderWidth: 1, borderColor: "#e5e7eb" },
+  shotRow: { flexDirection: "row", gap: 12 },
+  shotField: { flex: 1, gap: 6 },
+  shotLabel: { fontSize: 11, fontWeight: "600", color: "#6b7280", textTransform: "uppercase" },
+  shotInput: {
+    backgroundColor: "#f9fafb", borderRadius: 8, padding: 10,
+    fontSize: 16, borderWidth: 1, borderColor: "#e5e7eb", color: "#111827",
+  },
+  hookRow: { flexDirection: "row", gap: 4, flexWrap: "wrap" },
+  hookDot: { width: 20, height: 20, borderRadius: 10, backgroundColor: "#e5e7eb" },
+  hookDotActive: { backgroundColor: "#1e3a8a" },
+  confirmBtn: {
+    backgroundColor: "#374151", padding: 16, borderRadius: 14,
+    alignItems: "center", marginTop: 4,
   },
   btnDisabled: { opacity: 0.5 },
-  btnText: { color: "#fff", fontSize: 16, fontWeight: "700" },
-  shotDetails: { width: "100%", gap: 12, backgroundColor: "#fff", borderRadius: 14, padding: 16, borderWidth: 1, borderColor: "#e5e7eb" },
-  shotRow: { flexDirection: "row", gap: 12 },
-  shotField: { flex: 1, gap: 4 },
-  shotLabel: { fontSize: 12, fontWeight: "600", color: "#6b7280", textTransform: "uppercase" },
-  shotInput: { backgroundColor: "#f9fafb", borderRadius: 8, padding: 10, fontSize: 16, borderWidth: 1, borderColor: "#e5e7eb", color: "#111827" },
-  hookRow: { flexDirection: "row", gap: 6, marginTop: 6 },
-  hookDot: { width: 24, height: 24, borderRadius: 12, backgroundColor: "#e5e7eb" },
-  hookDotActive: { backgroundColor: "#1e3a8a" },
+  confirmBtnText: { color: "#fff", fontSize: 16, fontWeight: "700" },
 });
