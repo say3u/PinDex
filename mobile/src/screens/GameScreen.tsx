@@ -78,19 +78,13 @@ export default function GameScreen({ gameId, bowlerId, handStyle, oilPattern, on
   const [activeBoardType, setActiveBoardType] = useState<"start" | "target" | "impact" | null>("start");
   const [hook, setHook] = useState(5);
 
-  // 10th frame: did ball 2 knock all remaining pins?
-  const ball1StandingAfter = standingBall1; // pins left after ball 1
-  const ball2IsStrike10 = currentFrame === 10 && standingBall2.size === 0 && ball1StandingAfter.size === 0;
-  const ball2Spare10 = currentFrame === 10 && standingBall2.size === 0 && ball1StandingAfter.size > 0;
-
-  // Available pins for ball 2: only what was left standing after ball 1
-  // Exception: 10th frame after a strike, all pins reset
+  // Ball 2 available: after strike on ball 1 in 10th, all pins reset; otherwise remaining pins
   const ball2Available = currentFrame === 10 && standingBall1.size === 0
     ? ALL_PINS
     : standingBall1;
 
-  // Available for ball 3 in 10th: if ball 2 was a strike, all pins; else what's left after ball 2
-  const ball3Available = ball2IsStrike10 ? ALL_PINS : standingBall2;
+  // Ball 3 available: if ball 2 cleared all pins (strike OR spare), reset all 10; else remaining
+  const ball3Available = standingBall2.size === 0 ? ALL_PINS : standingBall2;
 
   const currentStanding =
     ball === 1 ? standingBall1 : ball === 2 ? standingBall2 : standingBall3;
@@ -108,13 +102,13 @@ export default function GameScreen({ gameId, bowlerId, handStyle, oilPattern, on
   }
 
   function markStrike() {
-    // Ball 1 strike: no pins standing
-    setStandingBall1(new Set());
-    handleConfirm(true);
+    if (ball === 1) setStandingBall1(new Set());
+    else if (ball === 2) setStandingBall2(new Set());
+    else setStandingBall3(new Set());
+    handleConfirm(ball === 1);
   }
 
   function markSpare() {
-    // Ball 2 spare: clear all remaining standing
     setStandingBall2(new Set());
     handleConfirm(false, true);
   }
@@ -273,12 +267,15 @@ export default function GameScreen({ gameId, bowlerId, handStyle, oilPattern, on
 
       {/* Strike / Spare quick buttons */}
       <View style={styles.quickRow}>
-        {ball === 1 && (
+        {/* STRIKE available on any ball in 10th, or ball 1 in frames 1-9 */}
+        {(ball === 1 || (currentFrame === 10 && (ball === 2 || ball === 3))) && (
           <TouchableOpacity style={styles.strikeBtn} onPress={markStrike} disabled={loading}>
-            <Text style={styles.strikeBtnText}>STRIKE</Text>
+            <Text style={styles.strikeBtnText}>
+              {currentFrame === 10 && ball === 3 ? "ALL DOWN" : "STRIKE"}
+            </Text>
           </TouchableOpacity>
         )}
-        {ball === 2 && currentStanding.size === 0 && (
+        {ball === 2 && currentFrame < 10 && (
           <TouchableOpacity style={styles.spareBtn} onPress={markSpare} disabled={loading}>
             <Text style={styles.spareBtnText}>SPARE</Text>
           </TouchableOpacity>
