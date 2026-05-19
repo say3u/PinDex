@@ -5,7 +5,17 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import PinDeck from "../components/PinDeck";
+import InfoButton from "../components/InfoModal";
 import { logFrame } from "../api/client";
+
+const INFO = {
+  startBoard: "The board you stand on at the approach. Boards are numbered 1–39, right to left for right-handers. Most house shot players start around board 15–25.",
+  targetBoard: "The board you're targeting at the arrows (about 15 feet down the lane). The arrows are at boards 5, 10, 15, 20, 25, 30, 35. Most players target the 2nd arrow (board 10).",
+  impactBoard: "The board where your ball contacts the pins at the pin deck. Ideal entry for a right-hander is around the 17-board (between the 1 and 3 pins).",
+  speed: "Ball speed measured at the pins in mph. Most league bowlers average 15–18 mph. Faster = less hook. Slower = more hook and more time to read the lane.",
+  hook: "How much your ball curved from its launch angle to the pins. 1 = almost straight, 10 = aggressive snap at the breakpoint. Rate what you felt this shot.",
+  standing: "Tap the pins that are STILL STANDING after your shot. Leave it empty for a strike — no pins standing.",
+};
 
 const ALL_PINS = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 
@@ -253,9 +263,12 @@ export default function GameScreen({ gameId, bowlerId, handStyle, onFinish }: Pr
       </View>
 
       {/* Pin deck */}
-      <Text style={styles.deckLabel}>
-        {ball === 1 ? "Tap pins LEFT STANDING" : "Tap remaining pins LEFT"}
-      </Text>
+      <View style={styles.labelRow}>
+        <Text style={styles.deckLabel}>
+          {ball === 1 ? "Tap pins LEFT STANDING" : "Tap remaining pins LEFT"}
+        </Text>
+        <InfoButton title="Pin Deck" content={INFO.standing} />
+      </View>
       <PinDeck
         standing={currentStanding}
         available={currentAvailable}
@@ -265,9 +278,12 @@ export default function GameScreen({ gameId, bowlerId, handStyle, onFinish }: Pr
 
       {/* Board tracking */}
       <View style={styles.boardRow}>
-        <BoardInput label="Start Board" value={startBoard} onChange={setStartBoard} />
-        <BoardInput label="Target Board" value={targetBoard} onChange={setTargetBoard} />
-        <BoardInput label="Impact Board" value={impactBoard} onChange={setImpactBoard} />
+        <BoardInput label="Start" value={startBoard} onChange={setStartBoard}
+          infoTitle="Start Board" infoContent={INFO.startBoard} />
+        <BoardInput label="Target" value={targetBoard} onChange={setTargetBoard}
+          infoTitle="Target Board" infoContent={INFO.targetBoard} />
+        <BoardInput label="Impact" value={impactBoard} onChange={setImpactBoard}
+          infoTitle="Impact Board" infoContent={INFO.impactBoard} />
       </View>
 
       {/* Speed + Hook (ball 1 only) */}
@@ -275,7 +291,10 @@ export default function GameScreen({ gameId, bowlerId, handStyle, onFinish }: Pr
         <View style={styles.shotCard}>
           <View style={styles.shotRow}>
             <View style={styles.shotField}>
-              <Text style={styles.shotLabel}>Speed (mph)</Text>
+              <View style={styles.labelRow}>
+                <Text style={styles.shotLabel}>Speed (mph)</Text>
+                <InfoButton title="Ball Speed" content={INFO.speed} />
+              </View>
               <TextInput
                 style={styles.shotInput}
                 placeholder="17.5"
@@ -286,7 +305,10 @@ export default function GameScreen({ gameId, bowlerId, handStyle, onFinish }: Pr
               />
             </View>
             <View style={styles.shotField}>
-              <Text style={styles.shotLabel}>Hook: {hook}/10</Text>
+              <View style={styles.labelRow}>
+                <Text style={styles.shotLabel}>Hook: {hook}/10</Text>
+                <InfoButton title="Hook Amount" content={INFO.hook} />
+              </View>
               <View style={styles.hookRow}>
                 {[1,2,3,4,5,6,7,8,9,10].map((v) => (
                   <TouchableOpacity
@@ -321,10 +343,16 @@ export default function GameScreen({ gameId, bowlerId, handStyle, onFinish }: Pr
   );
 }
 
-function BoardInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function BoardInput({ label, value, onChange, infoTitle, infoContent }: {
+  label: string; value: string; onChange: (v: string) => void;
+  infoTitle: string; infoContent: string;
+}) {
   return (
     <View style={styles.boardField}>
-      <Text style={styles.boardLabel}>{label}</Text>
+      <View style={styles.labelRow}>
+        <Text style={styles.boardLabel}>{label}</Text>
+        <InfoButton title={infoTitle} content={infoContent} />
+      </View>
       <TextInput
         style={styles.boardInput}
         placeholder="—"
@@ -364,7 +392,8 @@ const styles = StyleSheet.create({
     borderRadius: 30, width: "100%", alignItems: "center",
   },
   spareBtnText: { color: "#fff", fontWeight: "900", fontSize: 18, letterSpacing: 1 },
-  deckLabel: { textAlign: "center", color: "#6b7280", fontSize: 13, fontWeight: "500" },
+  deckLabel: { color: "#6b7280", fontSize: 13, fontWeight: "500" },
+  labelRow: { flexDirection: "row", alignItems: "center", gap: 5, justifyContent: "center" },
   boardRow: { flexDirection: "row", gap: 8 },
   boardField: { flex: 1, gap: 4 },
   boardLabel: { fontSize: 11, fontWeight: "600", color: "#6b7280", textTransform: "uppercase" },
